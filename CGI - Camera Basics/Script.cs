@@ -121,6 +121,7 @@ public class CGI_CameraManager
                 MyDetectedEntityType aType = aScan.Type;
                 Vector3D aPos = aScan.Position;
                 Vector3D aVelo = aScan.Velocity;
+                Nullable<Vector3D> aHitPosition = aScan.HitPosition;
 
                 // TODO: the camera should not thr first one in the list
                 double aDistance = Vector3D.Distance(aPos,mCameras[0].GetPosition()) / 1000;
@@ -128,6 +129,16 @@ public class CGI_CameraManager
                 aOut = aOut + String.Format("  {0:000000} - {1} - {2}\n",aDistance,aType,aName);
 
                 bOut = bOut + String.Format("GPS: Scan {0}:{1}:{2}:{3}:\n",aName,aPos.X,aPos.Y,aPos.Z);
+
+                if (aVelo != Vector3D.Zero)
+                {
+                    aOut = aOut + String.Format(" Velocity: {0:0.00} {1:0.00} {2:0.00}",aVelo.Value.X,aVelo.Value.Y,aVelo.Value.Z);
+                }
+
+                if (aHitPosition.HasValue)
+                {
+                    aOut = aOut + String.Format(" Hit: {0:0.00} {1:0.00} {2:0.00}",aHitPosition.Value.X,aHitPosition.Value.Y,aHitPosition.Value.Z);
+                }
 
             }
 
