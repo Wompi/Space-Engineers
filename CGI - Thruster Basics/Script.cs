@@ -8,12 +8,13 @@
  *      v0.12 - forces are now calculated as EffectiveForce as well - accounts for gravity related thrust adjustments
  *      v0.13 - changed the remote controller interface to shipController
  *      v0.20 - change to a manager based design to make it a bit more usable
+ *      V0.21 - the usual bugfixes for a blind commit
  */
 
 public CGI_ThrustManager myThrustManager = new CGI_ThrustManager();
 
 public List<IMyShipController> myShipControllers = new List<IMyShipController>();
-public List<IMyTextPanel> myLCDPanels = new List<IMyTextPanels>();
+public List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 
 public Program()
 {
@@ -38,15 +39,15 @@ public void Main(string argument, UpdateType updateSource)
         IMyShipController aCurrentController = GetControlledController();
         MyShipMass aMass = aCurrentController.CalculateShipMass();
         Vector3D aGravity = aCurrentController.GetNaturalGravity();
-        myThrustManager.ProcessCalculations(pControl.CalculateShipMass().PhysicalMass);
+        myThrustManager.ProcessCalculations(aCurrentController.CalculateShipMass().PhysicalMass);
 
         aOut = aOut + String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4} \n\n",
-                    pControl.CustomName,aMass.BaseMass,aMass.TotalMass,aMass.PhysicalMass,aGravity.Length().ToString("0.000"));
+                    aCurrentController.CustomName,aMass.BaseMass,aMass.TotalMass,aMass.PhysicalMass,aGravity.Length().ToString("0.000"));
 
         aOut = aOut + myThrustManager.Statistics("CurrentForce");
     }
 
-    myLCDPanels[0].WritePublicText(aOut,false);
+    myLCDPanels[1].WritePublicText(aOut,false);
 }
 
 public IMyShipController GetControlledController()
@@ -67,14 +68,15 @@ public IMyShipController GetControlledController()
 public class CGI_ThrustManager
 {
     private List<IMyThrust> mThrusters = new List<IMyThrust>();
-    private IMyShipController mControl = null;
     private Dictionary<Base6Directions.Direction,List<IMyThrust>> myThrustDirections = new Dictionary<Base6Directions.Direction,List<IMyThrust>>();
     private List<CGI_ThrusterDirectionStats> mDirectionStatsList = null;
 
 
     public string LoadEntities(IMyGridTerminalSystem pGTS)
     {
+        string aOut = "";
         pGTS.GetBlocksOfType(mThrusters);
+        return aOut;
     }
 
     // TODO: this could use a cache check - so that the calculations not run every cycle
@@ -93,7 +95,7 @@ public class CGI_ThrustManager
         foreach( IMyThrust aThruster in mThrusters)
         {
             Vector3D aThrustDirection = aThruster.GridThrustDirection;
-            myThrustDirections[aThrustDirection].Add(aThruster);
+            myThrustDirections[Base6Directions.GetDirection(aThrustDirection)].Add(aThruster);
         }
 
         // Note: not sure if this is a good test but for now it will do
@@ -101,11 +103,11 @@ public class CGI_ThrustManager
         // all thrusters is always 'Forward'
         // TODO: this will not work for thrusters not mounted on the main grid - a thruster on a rotor will
         // not give any usefull results I guess
-        if (!myThrustDirections[Base6Directions.Direction.Forward].Count == mThrusters)
+        if (myThrustDirections[Base6Directions.Direction.Forward].Count != mThrusters.Count)
         {
             aResult = true;
         }
-        retrun aResult;
+        return aResult;
     }
 
     public void ProcessCalculations(double pPhysicalMass)
@@ -129,15 +131,17 @@ public class CGI_ThrustManager
                     aDirectionStats.mDirectionForceEffective += aThruster.MaxEffectiveThrust;
                     aDirectionStats.mDirectionForceMax += aThruster.MaxThrust;
                     aDirectionStats.mThrusters += 1;
+
+                }
             }
 
             aDirectionStats.mAccelerationMax = aDirectionStats.mDirectionForceMax / pPhysicalMass;
             aDirectionStats.mAccelerationEffective = aDirectionStats.mDirectionForceEffective / pPhysicalMass;
             aDirectionStats.mAccelerationCurrent = aDirectionStats.mDirectionForceCurrent / pPhysicalMass;
 
-            aDirectionStats.mEfficiency = aDirectionStats.mDirectionForceCurrent / pPhysicalMass;
+            aDirectionStats.mEfficiency = aDirectionStats.mDirectionForceCurrent / aDirectionStats.mDirectionForceMax;
 
-            aStatsList.Add(aDirectionStats);
+            mDirectionStatsList.Add(aDirectionStats);
         }
     }
 
@@ -146,15 +150,15 @@ public class CGI_ThrustManager
         string aOut = "";
         if (pArgument.Equals("CurrentForce"))
         {
-            aOut = aOut + "Current Force: \n";
+            aOut = aOut + " Current Force: \n";
             foreach (CGI_ThrusterDirectionStats aStats in mDirectionStatsList)
             {
-                aOut = aOut + String.Format("{0}|{1}|[{2}][{3}]",
+                aOut = aOut + String.Format("  {0}|{1}|{2}|[{3}][{4}]\n",
                     aStats.mAccelerationCurrent.ToString("000"),
                     aStats.mDirectionForceCurrent.ToString("0000000"),
                     aStats.mEfficiency.ToString("0.00"),
                     aStats.mDirection.ToString()[0],
-                    aStats.mThrusters.ToString("00"))
+                    aStats.mThrusters.ToString("00"));
             }
         }
         return aOut;
@@ -163,7 +167,7 @@ public class CGI_ThrustManager
 
     struct CGI_ThrusterDirectionStats
     {
-        public double mDirection;
+        public Base6Directions.Direction mDirection;
         public int mThrusters;
 
         public double mDirectionForceMax;
