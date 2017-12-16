@@ -30,6 +30,7 @@ public void Main(string argument, UpdateType updateSource)
 {
     string aOut = "";
     string bOut = "";
+    string cOut = "";
 
 
 
@@ -63,10 +64,21 @@ public void Main(string argument, UpdateType updateSource)
                   aGravityForce.ToString("0000000"));
 
         bOut = bOut + myThrustManager.Statistics("MaxForce");
+
+        cOut = cOut + String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4}\n GForce: {5}\n\n",
+                aCurrentController.CustomName,
+                aMass.BaseMass,
+                aMass.TotalMass,
+                aMass.PhysicalMass,
+                aGravity.Length().ToString("0.000"),
+                aGravityForce.ToString("0000000"));
+
+        cOut = cOut + myThrustManager.Statistics("EffectiveForce");
     }
 
     myLCDPanels[1].WritePublicText(aOut,false);
     myLCDPanels[2].WritePublicText(bOut,false);
+    myLCDPanels[3].WritePublicText(bOut,false);
 }
 
 public IMyShipController GetControlledController()
@@ -188,6 +200,19 @@ public class CGI_ThrustManager
                 aOut = aOut + String.Format("  {0}|{1}|{2}|[{3}][{4}]\n",
                     aStats.mAccelerationMax.ToString("000"),
                     aStats.mDirectionForceMax.ToString("0000000"),
+                    aStats.mEfficiency.ToString("0.00"),
+                    aStats.mDirection.ToString()[0],
+                    aStats.mThrusters.ToString("00"));
+            }
+        }
+        else if (pArgument.Equals("EffectiveForce"))
+        {
+            aOut = aOut + " Effective Force: \n";
+            foreach (CGI_ThrusterDirectionStats aStats in mDirectionStatsList)
+            {
+                aOut = aOut + String.Format("  {0}|{1}|{2}|[{3}][{4}]\n",
+                    aStats.mAccelerationEffective.ToString("000"),
+                    aStats.mDirectionForceEffective.ToString("0000000"),
                     aStats.mEfficiency.ToString("0.00"),
                     aStats.mDirection.ToString()[0],
                     aStats.mThrusters.ToString("00"));
