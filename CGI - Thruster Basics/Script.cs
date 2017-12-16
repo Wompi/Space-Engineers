@@ -40,20 +40,33 @@ public void Main(string argument, UpdateType updateSource)
         IMyShipController aCurrentController = GetControlledController();
         MyShipMass aMass = aCurrentController.CalculateShipMass();
         Vector3D aGravity = aCurrentController.GetNaturalGravity();
+        double aGravityForce = aGravity.Length() * aMass.PhysicalMass;
+
         myThrustManager.ProcessCalculations(aCurrentController.CalculateShipMass().PhysicalMass);
 
-        aOut = aOut + String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4} \n\n",
-                    aCurrentController.CustomName,aMass.BaseMass,aMass.TotalMass,aMass.PhysicalMass,aGravity.Length().ToString("0.000"));
+        aOut = aOut + String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4}\n GForce: {5}\n\n",
+                aCurrentController.CustomName,
+                aMass.BaseMass,
+                aMass.TotalMass,
+                aMass.PhysicalMass,
+                aGravity.Length().ToString("0.000"),
+                aGravityForce.ToString("0000000"));
 
         aOut = aOut + myThrustManager.Statistics("CurrentForce");
 
-        bOut = bOut + String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4} \n\n",
-                    aCurrentController.CustomName,aMass.BaseMass,aMass.TotalMass,aMass.PhysicalMass,aGravity.Length().ToString("0.000"));
+        bOut = bOut + String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4}\n GForce: {5}\n\n",
+                  aCurrentController.CustomName,
+                  aMass.BaseMass,
+                  aMass.TotalMass,
+                  aMass.PhysicalMass,
+                  aGravity.Length().ToString("0.000"),
+                  aGravityForce.ToString("0000000"));
+
         bOut = bOut + myThrustManager.Statistics("MaxForce");
     }
 
     myLCDPanels[1].WritePublicText(aOut,false);
-    myLCDPanels[0].WritePublicText(bOut,false);
+    myLCDPanels[2].WritePublicText(bOut,false);
 }
 
 public IMyShipController GetControlledController()
