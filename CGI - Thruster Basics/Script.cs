@@ -1,129 +1,179 @@
 ﻿/**
- *      Author: Casegard
+ *    Author: Casegard
  *    Program: CGI - Thruster Basics
  *
  *    Version:
- *              v0.10 - just the very basic thruster data, forces, classify the ship thrusters by the main direction
- *              v0.11 - Classify all thrusters by its direction compared to the remote control - sum all forces and calculate the accelleration
- *              v0.12 - forces are now calculated as EffectiveForce as well - accounts for gravity related thrust adjustments
- *              v0.13 - changed the remote controller interface to shipController
+ *      v0.10 - just the very basic thruster data, forces, classify the ship thrusters by the main direction
+ *      v0.11 - Classify all thrusters by its direction compared to the remote control - sum all forces and calculate the accelleration
+ *      v0.12 - forces are now calculated as EffectiveForce as well - accounts for gravity related thrust adjustments
+ *      v0.13 - changed the remote controller interface to shipController
+ *      v0.20 - change to a manager based design to make it a bit more usable
  */
 
-Dictionary<Base6Directions.Direction,List<IMyThrust>> myThrusters = new Dictionary<Base6Directions.Direction,List<IMyThrust>>();
-IMyShipController  myControl = null;
-IMyTextPanel myPanel = null;
+public CGI_ThrustManager myThrustManager = new CGI_ThrustManager();
 
-int mTick = 0;
+public List<IMyShipController> myShipControllers = new List<IMyShipController>();
+public List<IMyTextPanel> myLCDPanels = new List<IMyTextPanels>();
 
-
-static string THRUST_PANEL_NAME = "CGI - Kowari Panel 01";
-
-
-// TEST: 
-
-public Program() 
-{ 
+public Program()
+{
     Runtime.UpdateFrequency  = UpdateFrequency.Update10;
-    List<IMyShipController> aControlList = new List<IMyShipController>();
-    GridTerminalSystem.GetBlocksOfType<IMyShipController>(aControlList);
-    
-    if (aControlList.Count == 0) 
+    GridTerminalSystem.GetBlocksOfType(myShipControllers);
+    GridTerminalSystem.GetBlocksOfType(myLCDPanels);
+    myThrustManager.LoadEntities(GridTerminalSystem);
+}
+
+public void Save() {}
+
+public void Main(string argument, UpdateType updateSource)
+{
+    string aOut = "";
+
+
+
+
+    bool isThrustDirectionSet = myThrustManager.SetDirections();
+    if (isThrustDirectionSet)
     {
-        Echo("ERROR: no remote control block!");
-        return;
+        IMyShipController aCurrentController = GetControlledController();
+        MyShipMass aMass = aCurrentController.CalculateShipMass();
+        Vector3D aGravity = aCurrentController.GetNaturalGravity();
+        myThrustManager.ProcessCalculations(pControl.CalculateShipMass().PhysicalMass);
+
+        aOut = aOut + String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4} \n\n",
+                    pControl.CustomName,aMass.BaseMass,aMass.TotalMass,aMass.PhysicalMass,aGravity.Length().ToString("0.000"));
+
+        aOut = aOut + myThrustManager.Statistics("CurrentForce");
     }
-   
-    // TODO: this is a bit ugly - it finds the RemoteControl Block but it should get it from the CustomData instead 
-    // to account for the right one if you have multiple 
-    myControl = aControlList[0];
-    Dictionary<Base6Directions.Direction,Vector3D> aVectorReference = new Dictionary<Base6Directions.Direction,Vector3D>();
-    aVectorReference[Base6Directions.Direction.Forward] = myControl.WorldMatrix.Forward;
-    aVectorReference[Base6Directions.Direction.Backward] = myControl.WorldMatrix.Backward;
-    aVectorReference[Base6Directions.Direction.Left] = myControl.WorldMatrix.Left; 
-    aVectorReference[Base6Directions.Direction.Right] = myControl.WorldMatrix.Right; 
-    aVectorReference[Base6Directions.Direction.Up] = myControl.WorldMatrix.Up;
-    aVectorReference[Base6Directions.Direction.Down] = myControl.WorldMatrix.Down;
 
-    List<IMyThrust> aThrusterList = new List<IMyThrust>();
-    GridTerminalSystem.GetBlocksOfType<IMyThrust>(aThrusterList);
+    myLCDPanels[0].WritePublicText(aOut,false);
+}
 
-    foreach( IMyThrust aThruster in aThrusterList)
+public IMyShipController GetControlledController()
+{
+    IMyShipController aResult = null;
+    foreach( IMyShipController aController in myShipControllers)
     {
-        Vector3D aForward = aThruster.WorldMatrix.Backward;   // thrusters point in the opposite direction
-
-        foreach( KeyValuePair<Base6Directions.Direction,Vector3D> aVectorPair in aVectorReference)
+        if (aController.IsUnderControl)
         {
-                Base6Directions.Direction aKey  = aVectorPair.Key;
-                Vector3D aVector = aVectorPair.Value;
-            
-                if (aForward.Equals(aVector,0.00001))
+            aResult = aController;
+            break;
+        }
+    }
+    return aResult;
+}
+
+
+public class CGI_ThrustManager
+{
+    private List<IMyThrust> mThrusters = new List<IMyThrust>();
+    private IMyShipController mControl = null;
+    private Dictionary<Base6Directions.Direction,List<IMyThrust>> myThrustDirections = new Dictionary<Base6Directions.Direction,List<IMyThrust>>();
+    private List<CGI_ThrusterDirectionStats> mDirectionStatsList = null;
+
+
+    public string LoadEntities(IMyGridTerminalSystem pGTS)
+    {
+        pGTS.GetBlocksOfType(mThrusters);
+    }
+
+    // TODO: this could use a cache check - so that the calculations not run every cycle
+    // because the thrusters don't change the directions
+    public bool SetDirections()
+    {
+        bool aResult = false;
+
+        myThrustDirections[Base6Directions.Direction.Forward] = new List<IMyThrust>();
+        myThrustDirections[Base6Directions.Direction.Backward] = new List<IMyThrust>();
+        myThrustDirections[Base6Directions.Direction.Left] = new List<IMyThrust>();
+        myThrustDirections[Base6Directions.Direction.Right] = new List<IMyThrust>();
+        myThrustDirections[Base6Directions.Direction.Up] = new List<IMyThrust>();
+        myThrustDirections[Base6Directions.Direction.Down] = new List<IMyThrust>();
+
+        foreach( IMyThrust aThruster in mThrusters)
+        {
+            Vector3D aThrustDirection = aThruster.GridThrustDirection;
+            myThrustDirections[aThrustDirection].Add(aThruster);
+        }
+
+        // Note: not sure if this is a good test but for now it will do
+        // When the ship is not under control by a player or a remote control the 'GridThrustDirection' for
+        // all thrusters is always 'Forward'
+        // TODO: this will not work for thrusters not mounted on the main grid - a thruster on a rotor will
+        // not give any usefull results I guess
+        if (!myThrustDirections[Base6Directions.Direction.Forward].Count == mThrusters)
+        {
+            aResult = true;
+        }
+        retrun aResult;
+    }
+
+    public void ProcessCalculations(double pPhysicalMass)
+    {
+        mDirectionStatsList = new List<CGI_ThrusterDirectionStats>();
+
+        foreach(KeyValuePair<Base6Directions.Direction,List<IMyThrust>> aPair in myThrustDirections)
+        {
+            CGI_ThrusterDirectionStats aDirectionStats = new CGI_ThrusterDirectionStats();
+
+            Base6Directions.Direction aKey = aPair.Key;
+            List<IMyThrust> aValue = aPair.Value;
+
+            aDirectionStats.mDirection = aKey;
+
+            foreach(IMyThrust aThruster in aValue)
+            {
+                if (aThruster.Enabled && aThruster.IsFunctional)
                 {
-                     if (!myThrusters.ContainsKey(aKey)) 
-                    { 
-                        myThrusters.Add(aKey,new List<IMyThrust>()); 
-                    }         
-                    myThrusters[aKey].Add(aThruster);  
+                    aDirectionStats.mDirectionForceCurrent += aThruster.CurrentThrust;
+                    aDirectionStats.mDirectionForceEffective += aThruster.MaxEffectiveThrust;
+                    aDirectionStats.mDirectionForceMax += aThruster.MaxThrust;
+                    aDirectionStats.mThrusters += 1;
+            }
 
-                    // DEBUG: 
-                    Echo(aKey.ToString() + " " + aThruster.CustomName); 
-                    // DEBUG: end
-                    break;
-                }
+            aDirectionStats.mAccelerationMax = aDirectionStats.mDirectionForceMax / pPhysicalMass;
+            aDirectionStats.mAccelerationEffective = aDirectionStats.mDirectionForceEffective / pPhysicalMass;
+            aDirectionStats.mAccelerationCurrent = aDirectionStats.mDirectionForceCurrent / pPhysicalMass;
+
+            aDirectionStats.mEfficiency = aDirectionStats.mDirectionForceCurrent / pPhysicalMass;
+
+            aStatsList.Add(aDirectionStats);
         }
-    } 
-    
-
-    // TODO: the panel handling should be done with the CustomData as well
-    myPanel = GridTerminalSystem.GetBlockWithName(THRUST_PANEL_NAME) as IMyTextPanel;
-
-
-} 
- 
-public void Save() {} 
- 
-public void Main(string argument, UpdateType updateSource) 
-{ 
-    mTick++;
-
-    // DEBUG:
-    foreach(KeyValuePair<Base6Directions.Direction,List<IMyThrust>> aPair in myThrusters)
-    {
-        Echo("Update["+mTick+"]  "+updateSource.ToString() + " " + aPair.Key.ToString() + " : " + aPair.Value.Count);
     }
-    // DEBUG: end
 
-
-    string aOutput = "";
-    MyShipMass aMass = myControl.CalculateShipMass();
-    Vector3D aGravity = myControl.GetNaturalGravity();
-    aOutput  = aOutput + String.Format("{0}: \n {1} / {2} \n Gravity: {3} \n\n",
-                myControl.CustomName,aMass.BaseMass,aMass.TotalMass,aGravity.Length().ToString("0.000"));
-
-    foreach(KeyValuePair<Base6Directions.Direction,List<IMyThrust>> aPair in myThrusters) 
+    public string Statistics(string pArgument)
     {
-        Base6Directions.Direction aKey = aPair.Key;
-        List<IMyThrust> aValue = aPair.Value;
-
-        double aDirectionForce = 0;
-        double aMaxDirectionForce = 0;
-        double aEffectiveDirectionForce = 0;
-        foreach(IMyThrust aThruster in aValue)
+        string aOut = "";
+        if (pArgument.Equals("CurrentForce"))
         {
-            double aForce = aThruster.CurrentThrust;
-            double aMaxForce = aThruster.MaxThrust;
-            aDirectionForce += aForce;
-            aMaxDirectionForce += aMaxForce;
-            aEffectiveDirectionForce += aThruster.MaxEffectiveThrust;
+            aOut = aOut + "Current Force: \n";
+            foreach (CGI_ThrusterDirectionStats aStats in mDirectionStatsList)
+            {
+                aOut = aOut + String.Format("{0}|{1}|[{2}][{3}]",
+                    aStats.mAccelerationCurrent.ToString("000"),
+                    aStats.mDirectionForceCurrent.ToString("0000000"),
+                    aStats.mEfficiency.ToString("0.00"),
+                    aStats.mDirection.ToString()[0],
+                    aStats.mThrusters.ToString("00"))
+            }
         }
-        double aAcceleration = aDirectionForce/aMass.TotalMass;
-        double aEfficiency = aDirectionForce/aMaxDirectionForce;
-        double aMaxDirectionAcceleration = aEffectiveDirectionForce/aMass.TotalMass;
-        //aOutput = aOutput + String.Format("  {0}|{1}|{2} [{3}] \n",
-        //            aAcceleration.ToString("0.000"),aDirectionForce.ToString("000000"),aKey.ToString()[0],aValue.Count.ToString("00"));
-        aOutput = aOutput + String.Format("  {0}|{1}|{2}|{3} [{4}] \n", 
-                    aAcceleration.ToString("00.00"),aEfficiency.ToString("00.00"),aMaxDirectionAcceleration.ToString("00.00"),aKey.ToString()[0],aValue.Count.ToString("00")); 
-           
+        return aOut;
     }
 
-    myPanel.WritePublicText(aOutput,false);
-} 
+
+    struct CGI_ThrusterDirectionStats
+    {
+        public double mDirection;
+        public int mThrusters;
+
+        public double mDirectionForceMax;
+        public double mDirectionForceEffective;
+        public double mDirectionForceCurrent;
+
+        public double mAccelerationMax;
+        public double mAccelerationEffective;
+        public double mAccelerationCurrent;
+        public double mEfficiency;
+    }
+
+}
