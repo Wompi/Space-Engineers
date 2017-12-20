@@ -27,7 +27,7 @@ public Program()
     {
         aPanel.FontSize = 1f;
         aPanel.Font = "MonoSpace";
-        aPanle.ShowPublicTextOnScreen();
+        aPanel.ShowPublicTextOnScreen();
     }
 }
 
