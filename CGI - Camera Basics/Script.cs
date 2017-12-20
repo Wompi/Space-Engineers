@@ -21,7 +21,7 @@ public Program()
 {
     Runtime.UpdateFrequency  = UpdateFrequency.Update10;
     string aOut = myCameraManager.LoadEntities(GridTerminalSystem, b => b.CubeGrid == Me.CubeGrid);
-    GridTerminalSystem.GetBlocksOfType(myLCDPanels);
+    GridTerminalSystem.GetBlocksOfType(myLCDPanels, b => b.CubeGrid == Me.CubeGrid);
 
     foreach( IMyTextPanel aPanel in myLCDPanels)
     {
