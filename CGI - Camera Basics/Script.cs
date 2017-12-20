@@ -15,7 +15,8 @@
 public CGI_CameraManager myCameraManager = new CGI_CameraManager();
 public List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 
-public int PANEL_INDEX = 0;
+public int PANEL_CAMERA_INDEX = 0;
+public int PANEL_SCAN_INDEX = 0;
 
 public Program()
 {
@@ -23,12 +24,13 @@ public Program()
     string aOut = myCameraManager.LoadEntities(GridTerminalSystem, b => b.CubeGrid == Me.CubeGrid);
     GridTerminalSystem.GetBlocksOfType(myLCDPanels, b => b.CubeGrid == Me.CubeGrid);
 
-    foreach( IMyTextPanel aPanel in myLCDPanels)
-    {
-        aPanel.FontSize = 1f;
-        aPanel.Font = "MonoSpace";
-        aPanel.ShowPublicTextOnScreen();
-    }
+    // Note: This leads to a game grash if another script set this as well
+    // foreach( IMyTextPanel aPanel in myLCDPanels)
+    // {
+    //     aPanel.FontSize = 1f;
+    //     aPanel.Font = "MonoSpace";
+    //     aPanel.ShowPublicTextOnScreen();
+    // }
 }
 
 public void Save() {}
@@ -47,18 +49,20 @@ public void Main(string argument, UpdateType updateSource)
         aOut += myCameraManager.Statistics();
     }
 
-    aOut = aOut + myCameraManager.GetLastScanResult();
-    myLCDPanels[PANEL_INDEX].WritePublicText(aOut,false);
+    myLCDPanels[PANEL_SCAN_INDEX].WritePublicText(myCameraManager.GetCurrentScanResult(),false);
+    myLCDPanels[PANEL_CAMERA_INDEX].WritePublicText(aOut,false);
 }
 
 
 public class CGI_CameraManager
 {
         private List<IMyCameraBlock> mCameras = new List<IMyCameraBlock>();
-        private int mCurrentIndex = 0;
+        private int mCurrentCameraIndex = 0;
         private Dictionary<string, Func<string,bool>> mArguments = new Dictionary<string, Func<string,bool>>();
 
         private Dictionary<long,MyDetectedEntityInfo> mScanResults = new Dictionary<long,MyDetectedEntityInfo>();
+        private List<long> mScanIDs = new List<long>();
+        private int mCurrentScanIndex = 0;
 
         double DEFAULT_SCAN_RANGE = 60000;
 
@@ -67,7 +71,8 @@ public class CGI_CameraManager
             mArguments["scan"] = CommandSingleScan;
             mArguments["NextCamera"] = CommandNext;
             mArguments["PreviousCamera"] = CommandPrevious;
-
+            mArguments["NextScan"] = CommandNextScan;
+            mArguments["PreviousScan"] = CommandPreviousScan;
         }
 
         public string LoadEntities(IMyGridTerminalSystem aGTS, Func<IMyTerminalBlock, bool> pCheck = null)
@@ -92,9 +97,9 @@ public class CGI_CameraManager
         public string StatisticsForCurrentCamera()
         {
             string aResult = "";
-            IMyCameraBlock aCamera = mCameras[mCurrentIndex];
-            aResult += String.Format("Index: {0:00}/{1:00}\n Name: {2}\n CanScan [{3:0.0} km]: {4}\n ScanRange: {5:0.0} km\n Mass: {6}\n\n",
-                mCurrentIndex,
+            IMyCameraBlock aCamera = mCameras[mCurrentCameraIndex];
+            aResult += String.Format("Camera Index: {0:00}/{1:00}\n Name: {2}\n CanScan [{3:0.0} km]: {4}\n ScanRange: {5:0.0} km\n Mass: {6}\n\n",
+                mCurrentCameraIndex+1,
                 mCameras.Count,
                 aCamera.CustomName,
                 DEFAULT_SCAN_RANGE/1000,
@@ -142,14 +147,14 @@ public class CGI_CameraManager
             return aOut;
         }
 
-        public string GetLastScanResult()
+        public string GetCurrentScanResult()
         {
-            string aOut = "";
-            string bOut = "";
-
-            foreach( MyDetectedEntityInfo aScan in mScanResults.Values )
+            string aResult = "";
+            if (mScanIDs.Count != 0)
             {
-                long aID = aScan.EntityId;
+                long aID = mScanIDs[mCurrentScanIndex];
+                MyDetectedEntityInfo aScan = mScanResults[aID];
+
                 TimeSpan aTime = new TimeSpan(aScan.TimeStamp);
                 string aName = aScan.Name;
                 MyDetectedEntityType aType = aScan.Type;
@@ -158,33 +163,48 @@ public class CGI_CameraManager
                 Nullable<Vector3D> aHitPosition = aScan.HitPosition;
 
                 // TODO: the camera should not thr first one in the list
-                double aDistance = Vector3D.Distance(aPos,mCameras[0].GetPosition()) / 1000;
+                IMyCameraBlock aCamera = mCameras[mCurrentCameraIndex];
+                double aDistance = Vector3D.Distance(aPos,aCamera.GetPosition());
 
-                aOut = aOut + String.Format("  {0:000000} - {1} - {2}\n",aDistance,aType,aName);
-
-                bOut = bOut + String.Format("GPS: Scan Position {0}:{1}:{2}:{3}:\n",aName,aPos.X,aPos.Y,aPos.Z);
-
+                string aVeloString = "Velocity: static";
                 if (aVelo != Vector3D.Zero)
                 {
-                    aOut = aOut + String.Format(" Velocity: {0:0.00} {1:0.00} {2:0.00}",aVelo.X,aVelo.Y,aVelo.Z);
+                    aVeloString = String.Format("Velocity:\n     {0:00.00}\n     {1:00.00}\n     {2:00.00}",
+                        aVelo.X,
+                        aVelo.Y,
+                        aVelo.Z);
                 }
 
+                string aHitString = "HitPosition: undefined";
                 if (aHitPosition.HasValue)
                 {
-                    aOut = aOut + String.Format(" Hit: {0:0.00} {1:0.00} {2:0.00}",aHitPosition.Value.X,aHitPosition.Value.Y,aHitPosition.Value.Z);
-                    bOut = bOut + String.Format("GPS: Scan Hit {0}:{1}:{2}:{3}:\n",aName,aHitPosition.Value.X,aHitPosition.Value.Y,aHitPosition.Value.Z);
+                    aHitString = String.Format("HitPosition:\n     {0:0.00}\n     {1:0.00}\n     {2:0.00}",
+                        aHitPosition.Value.X,
+                        aHitPosition.Value.Y,
+                        aHitPosition.Value.Z);
                 }
 
-            }
+                aResult += String.Format("Scan Index: {0:00}/{1:00}\n ID: {2}\n Name: {3}\n Type: {4}\n Time: {{5:hh\\:mm\\:ss}}\n Distance: {6:0.0} km\n
+                {7}\n {8}\n",
+                    mCurrentScanIndex+1,
+                    mScanIDs.Count,
+                    aID,
+                    aName,
+                    aType,
+                    aTime,
+                    aDistance / 1000,
+                    aVeloString,
+                    aHitString);
 
-            return aOut + "\n\n" + bOut;
+            }
+            return aResult;
         }
 
 
         private bool CommandSingleScan(string pCommand)
         {
             bool aResult = false;
-            IMyCameraBlock aCamera = mCameras[mCurrentIndex];
+            IMyCameraBlock aCamera = mCameras[mCurrentCameraIndex];
             if (aCamera.CanScan(DEFAULT_SCAN_RANGE))
             {
                 MyDetectedEntityInfo aScan = aCamera.Raycast(DEFAULT_SCAN_RANGE);
@@ -192,6 +212,8 @@ public class CGI_CameraManager
                 {
                     long aID = aScan.EntityId;
                     mScanResults[aID] = aScan;
+                    mScanIDs = mScanResults.Keys.ToList().Sort();
+                    mCurrentScanIndex = mScanIDs.IndexOf(aID);
                     aResult = true;
                 }
             }
@@ -200,15 +222,29 @@ public class CGI_CameraManager
 
         private bool CommandNext(string pCommand)
         {
-            mCurrentIndex++;
-            if (mCurrentIndex > (mCameras.Count-1)) mCurrentIndex = 0;
+            mCurrentCameraIndex++;
+            if (mCurrentCameraIndex > (mCameras.Count-1)) mCurrentCameraIndex = 0;
             return true;
         }
 
         private bool CommandPrevious(string pCommand)
         {
-            mCurrentIndex--;
-            if (mCurrentIndex < 0) mCurrentIndex = mCameras.Count-1;
+            mCurrentCameraIndex--;
+            if (mCurrentCameraIndex < 0) mCurrentCameraIndex = mCameras.Count-1;
+            return true;
+        }
+
+        private bool CommandNextScan(string pCommand)
+        {
+            mCurrentScanIndex++;
+            if (mCurrentScanIndex > (mScanIDs.Count-1)) mCurrentScanIndex = 0;
+            return true;
+        }
+
+        private bool CommandPreviousScan(string pCommand)
+        {
+            mCurrentScanIndex--;
+            if (mCurrentScanIndex < 0) mCurrentScanIndex = mScanIDs.Count-1;
             return true;
         }
 }
