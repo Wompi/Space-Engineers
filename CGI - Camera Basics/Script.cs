@@ -8,6 +8,7 @@
  *              v0.12 - EnableRayCast so we finally can check the raycast  functions
  *              v0.13 - save the results to the camera - todo: split with small/large grids for velocity and position
  *              v0.20 - make it a class with all the functioons nessessary
+ *              v0.21 - lets try some menu selection to handle more cameras
  */
 
 
@@ -19,7 +20,7 @@ public static string PANEL_NAME = "CGI - Kowari Panel 02";
 public Program()
 {
     Runtime.UpdateFrequency  = UpdateFrequency.Update10;
-    string aOut = myCameraManager.LoadEntities(GridTerminalSystem);
+    string aOut = myCameraManager.LoadEntities(GridTerminalSystem, b => b.CubeGrid == Me.CubeGrid);
     mPanel = GridTerminalSystem.GetBlockWithName(PANEL_NAME) as IMyTextPanel;
 }
 
@@ -27,11 +28,16 @@ public void Save() {}
 
 public void Main(string argument, UpdateType updateSource)
 {
-    string aOut = myCameraManager.Statistics();
+    string aOut = "";
 
     if (!argument.Equals(String.Empty))
     {
         myCameraManager.ProcessCommand(argument);
+        aOut += myCameraManager.StatisticsForCurrentCamera();
+    }
+    else
+    {
+        aOut += myCameraManager.Statistics();
     }
 
     aOut = aOut + myCameraManager.GetLastScanResult();
@@ -42,6 +48,7 @@ public void Main(string argument, UpdateType updateSource)
 public class CGI_CameraManager
 {
         private List<IMyCameraBlock> mCameras = new List<IMyCameraBlock>();
+        private int mCurrentIndex = 0;
         private Dictionary<string, Func<string,bool>> mArguments = new Dictionary<string, Func<string,bool>>();
 
         private Dictionary<long,MyDetectedEntityInfo> mScanResults = new Dictionary<long,MyDetectedEntityInfo>();
@@ -51,12 +58,15 @@ public class CGI_CameraManager
         public CGI_CameraManager()
         {
             mArguments["scan"] = CommandScan;
+            mArguments["NextCamera"] = CommandNext;
+            mArguments["PreviousCamera"] = CommandPrevious;
+
         }
 
-        public string LoadEntities(IMyGridTerminalSystem aGTS)
+        public string LoadEntities(IMyGridTerminalSystem aGTS, Func<IMyTerminalBlock, bool> pCheck = null)
         {
                 string aOut = "";
-                aGTS.GetBlocksOfType(mCameras);
+                aGTS.GetBlocksOfType(mCameras, pCheck);
 
                 // TODO: give every camera a CustomData and set there if you want to be raycast enabled or not
                 //             this would make it possible to exclude cameras
@@ -70,6 +80,23 @@ public class CGI_CameraManager
         public bool ProcessCommand(string pArgument)
         {
             return mArguments[pArgument](pArgument);
+        }
+
+        public string StatisticsForCurrentCamera()
+        {
+            string aResult = "";
+            IMyCameraBlock aCamera = mCameras[mCurrentIndex];
+            aResult += String.Format("Index: {0:00}/{1:00}\n Name: {2}\n CanScan [{3:0.0} km]: {4}\n ScanRange: {5:0.0} km\n Mass: {6}\n\n",
+                mCurrentIndex,
+                mCameras.Count,
+                aCamera.CustomName,
+                DEFAULT_SCAN_RANGE/1000,
+                aCamera.CanScan(DEFAULT_SCAN_RANGE) ? 'Y' : 'N',
+                aCamera.AvailableScanRange / 1000,
+                aCamera.Mass
+                );
+
+            return aResult;
         }
 
         public string Statistics()
@@ -147,7 +174,7 @@ public class CGI_CameraManager
         }
 
 
-        public bool CommandScan(string pCommand)
+        private bool CommandScan(string pCommand)
         {
             bool aResult = false;
             foreach (IMyCameraBlock aCamera in mCameras)
@@ -163,5 +190,19 @@ public class CGI_CameraManager
                 }
             }
             return aResult;
+        }
+
+        private bool CommandNext(string pCommand)
+        {
+            mCurrentIndex++;
+            if (mCurrentIndex > (mCameras.Count-1)) mCurrentIndex = 0;
+            return true;
+        }
+
+        private bool CommandPrevious(string pCommand)
+        {
+            mCurrentIndex--;
+            if (mCurrentIndex < 0) mCurrentIndex = mCameras.Count-1;
+            return true;
         }
 }
