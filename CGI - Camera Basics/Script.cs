@@ -15,8 +15,8 @@
 public CGI_CameraManager myCameraManager = new CGI_CameraManager();
 public List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 
-public int PANEL_CAMERA_INDEX = 0;
-public int PANEL_SCAN_INDEX = 0;
+public int PANEL_CAMERA_INDEX = 2;
+public int PANEL_SCAN_INDEX = 3;
 
 public Program()
 {
@@ -46,7 +46,7 @@ public void Main(string argument, UpdateType updateSource)
     }
     else
     {
-        aOut += myCameraManager.Statistics();
+        aOut += myCameraManager.StatisticsForCurrentCamera();
     }
 
     myLCDPanels[PANEL_SCAN_INDEX].WritePublicText(myCameraManager.GetCurrentScanResult(),false);
@@ -184,8 +184,7 @@ public class CGI_CameraManager
                         aHitPosition.Value.Z);
                 }
 
-                aResult += String.Format("Scan Index: {0:00}/{1:00}\n ID: {2}\n Name: {3}\n Type: {4}\n Time: {{5:hh\\:mm\\:ss}}\n Distance: {6:0.0} km\n
-                {7}\n {8}\n",
+                aResult += String.Format("Scan Index: {0:00}/{1:00}\n ID: {2}\n Name: {3}\n Type: {4}\n Time: {5:hh\\:mm\\:ss}\n Distance: {6:0.0} km\n{7}\n {8}\n",
                     mCurrentScanIndex+1,
                     mScanIDs.Count,
                     aID,
@@ -212,7 +211,8 @@ public class CGI_CameraManager
                 {
                     long aID = aScan.EntityId;
                     mScanResults[aID] = aScan;
-                    mScanIDs = mScanResults.Keys.ToList().Sort();
+                    mScanIDs = mScanResults.Keys.ToList();
+                    mScanIDs.Sort();
                     mCurrentScanIndex = mScanIDs.IndexOf(aID);
                     aResult = true;
                 }
