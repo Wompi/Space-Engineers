@@ -57,7 +57,7 @@ public class CGI_CameraManager
 
         public CGI_CameraManager()
         {
-            mArguments["scan"] = CommandScan;
+            mArguments["scan"] = CommandSingleScan;
             mArguments["NextCamera"] = CommandNext;
             mArguments["PreviousCamera"] = CommandPrevious;
 
@@ -174,19 +174,18 @@ public class CGI_CameraManager
         }
 
 
-        private bool CommandScan(string pCommand)
+        private bool CommandSingleScan(string pCommand)
         {
             bool aResult = false;
-            foreach (IMyCameraBlock aCamera in mCameras)
+            IMyCameraBlock aCamera = mCameras[mCurrentIndex];
+            if (aCamera.CanScan(DEFAULT_SCAN_RANGE))
             {
-                if (aCamera.CanScan(DEFAULT_SCAN_RANGE))
+                MyDetectedEntityInfo aScan = aCamera.Raycast(DEFAULT_SCAN_RANGE);
+                if (!aScan.IsEmpty())
                 {
-                    MyDetectedEntityInfo aScan = aCamera.Raycast(DEFAULT_SCAN_RANGE);
-                    if (!aScan.IsEmpty())
-                    {
-                        long aID = aScan.EntityId;
-                        mScanResults[aID] = aScan;
-                    }
+                    long aID = aScan.EntityId;
+                    mScanResults[aID] = aScan;
+                    aResult = true;
                 }
             }
             return aResult;
