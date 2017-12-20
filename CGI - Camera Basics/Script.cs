@@ -13,15 +13,22 @@
 
 
 public CGI_CameraManager myCameraManager = new CGI_CameraManager();
+public List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 
-public IMyTextPanel mPanel = null;
-public static string PANEL_NAME = "CGI - Kowari Panel 02";
+public int PANEL_INDEX = 0;
 
 public Program()
 {
     Runtime.UpdateFrequency  = UpdateFrequency.Update10;
     string aOut = myCameraManager.LoadEntities(GridTerminalSystem, b => b.CubeGrid == Me.CubeGrid);
-    mPanel = GridTerminalSystem.GetBlockWithName(PANEL_NAME) as IMyTextPanel;
+    GridTerminalSystem.GetBlocksOfType(myLCDPanels);
+
+    foreach( IMyTextPanel aPanel in myLCDPanels)
+    {
+        aPanel.FontSize = 1f;
+        aPanel.Font = "MonoSpace";
+        aPanle.ShowPublicTextOnScreen();
+    }
 }
 
 public void Save() {}
@@ -41,7 +48,7 @@ public void Main(string argument, UpdateType updateSource)
     }
 
     aOut = aOut + myCameraManager.GetLastScanResult();
-    mPanel.WritePublicText(aOut,false);
+    myLCDPanels[PANEL_INDEX].WritePublicText(aOut,false);
 }
 
 
