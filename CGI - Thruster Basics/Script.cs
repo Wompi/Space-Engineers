@@ -19,9 +19,9 @@ public List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 public Program()
 {
     Runtime.UpdateFrequency  = UpdateFrequency.Update10;
-    GridTerminalSystem.GetBlocksOfType(myShipControllers);
-    GridTerminalSystem.GetBlocksOfType(myLCDPanels);
-    myThrustManager.LoadEntities(GridTerminalSystem);
+    GridTerminalSystem.GetBlocksOfType(myShipControllers, b => b.CubeGrid == Me.CubeGrid);
+    GridTerminalSystem.GetBlocksOfType(myLCDPanels, b => b.CubeGrid == Me.CubeGrid);
+    myThrustManager.LoadEntities(GridTerminalSystem, b => b.CubeGrid == Me.CubeGrid);
 }
 
 public void Save() {}
@@ -103,10 +103,10 @@ public class CGI_ThrustManager
     private List<CGI_ThrusterDirectionStats> mDirectionStatsList = null;
 
 
-    public string LoadEntities(IMyGridTerminalSystem pGTS)
+    public string LoadEntities(IMyGridTerminalSystem pGTS, Func<IMyTerminalBlock,bool> pCheck = null)
     {
         string aOut = "";
-        pGTS.GetBlocksOfType(mThrusters);
+        pGTS.GetBlocksOfType(mThrusters, pCheck);
         return aOut;
     }
 
