@@ -7,6 +7,8 @@
  *                          - batteries will be recharge if connected to another grid 
  *                          - tool will be switched of if jumping out of the cockpit
  *                          - reactor switched of when connected to another grid 
+ *              v0.12   - only grab the blocks on the grid - nice adjustment to the 'GetFirstBlockOfType' generic
+ *
  *
  */
 
@@ -23,7 +25,6 @@ IMyShipToolBase myTool = null;
 //IMyShipGrinder myGrinder = null;
 IMyRadioAntenna myAntenna = null;
 
-
 List<IMyBatteryBlock> myBatteries = new List<IMyBatteryBlock>();
 List<IMySolarPanel> mySolarPanels = new List<IMySolarPanel>();
 List<IMyTextPanel> myTextPanels = new List<IMyTextPanel>(); 
@@ -31,91 +32,49 @@ List<IMyTextPanel> myTextPanels = new List<IMyTextPanel>();
 
 static double ANTENNA_ENERGY_FACTOR = 0.004;    // NOTE: could be changed in future versions for now the energy input is linear (4W) 
 
-
-
-Dictionary<Base6Directions.Direction,List<IMyThrust>> myThrusters = new Dictionary<Base6Directions.Direction,List<IMyThrust>>();
-IMyTextPanel myPanel = null;
-
 int mTick = 0;
 
-
-static string THRUST_PANEL_NAME = "CGI - Kowari Panel 01";
-
-public T GetFirstBlockOfType<T>(T pBlock) where T : class
+public void GetFirstBlockOfType<T>( ref T pBlock, Func<IMyTerminalBlock, bool> pCheck = null ) where T : class
 {
     List<T> aList = new List<T>();
-    GridTerminalSystem.GetBlocksOfType(aList);
+    GridTerminalSystem.GetBlocksOfType<T>(aList);
 
-    T aResult = null;
-    if (aList.Count > 0) aResult = aList[0];
+    //T aResult = null;
+    if (aList.Count > 0) pBlock = aList[0];
 
-    return aResult;
+    //return aResult;
 }
 
 public Program() 
 { 
     Runtime.UpdateFrequency  = UpdateFrequency.Update10;
 
-    myShipConnector = GetFirstBlockOfType(myShipConnector);
-    myLandingGear = GetFirstBlockOfType(myLandingGear);
-    myReactor = GetFirstBlockOfType(myReactor); 
-    myGyro = GetFirstBlockOfType(myGyro); 
-    myCockpit = GetFirstBlockOfType(myCockpit);  
-    myRemoteControl = GetFirstBlockOfType(myRemoteControl);
-    myGasGenerator = GetFirstBlockOfType(myGasGenerator); 
-    //myWelder = GetFirstBlockOfType(myWelder);  
-    //myGrinder = GetFirstBlockOfType(myGrinder); 
-    myTool =  GetFirstBlockOfType(myTool);
-    myAntenna = GetFirstBlockOfType(myAntenna);   
+    Func<IMyTerminalBlock, bool> aCheck = b => b.CubeGrid == Me.CubeGrid;
+
+    GetFirstBlockOfType(ref myShipConnector, aCheck);
+    GetFirstBlockOfType(ref myLandingGear, aCheck);
+    GetFirstBlockOfType(ref myReactor, aCheck); 
+    GetFirstBlockOfType(ref myGyro, aCheck); 
+    GetFirstBlockOfType(ref myCockpit, aCheck);  
+    GetFirstBlockOfType(ref myRemoteControl, aCheck);
+    GetFirstBlockOfType(ref myGasGenerator, aCheck); 
+    //GetFirstBlockOfType(ref myWelder, aCheck);  
+    //GetFirstBlockOfType(ref myGrinder, aCheck); 
+    GetFirstBlockOfType(ref myTool, aCheck);
+    GetFirstBlockOfType(ref myAntenna, aCheck);   
       
     
-    GridTerminalSystem.GetBlocksOfType(myBatteries); 
-    GridTerminalSystem.GetBlocksOfType(mySolarPanels);  
-    GridTerminalSystem.GetBlocksOfType(myTextPanels);   
-        
-    // TODO: this is a bit ugly - it finds the RemoteControl Block but it should get it from the CustomData instead 
-    // to account for the right one if you have multiple 
-    Dictionary<Base6Directions.Direction,Vector3D> aVectorReference = new Dictionary<Base6Directions.Direction,Vector3D>();
-    aVectorReference[Base6Directions.Direction.Forward] = myRemoteControl.WorldMatrix.Forward;
-    aVectorReference[Base6Directions.Direction.Backward] = myRemoteControl.WorldMatrix.Backward;
-    aVectorReference[Base6Directions.Direction.Left] = myRemoteControl.WorldMatrix.Left; 
-    aVectorReference[Base6Directions.Direction.Right] = myRemoteControl.WorldMatrix.Right; 
-    aVectorReference[Base6Directions.Direction.Up] = myRemoteControl.WorldMatrix.Up;
-    aVectorReference[Base6Directions.Direction.Down] = myRemoteControl.WorldMatrix.Down;
+    GridTerminalSystem.GetBlocksOfType(myBatteries, aCheck); 
+    GridTerminalSystem.GetBlocksOfType(mySolarPanels, aCheck);  
+    GridTerminalSystem.GetBlocksOfType(myTextPanels, aCheck);  
 
-    List<IMyThrust> aThrusterList = new List<IMyThrust>();
-    GridTerminalSystem.GetBlocksOfType<IMyThrust>(aThrusterList);
 
-    foreach( IMyThrust aThruster in aThrusterList)
+    foreach( IMyTextPanel aPanel in myTextPanels)
     {
-        Vector3D aForward = aThruster.WorldMatrix.Backward;   // thrusters point in the opposite direction
-
-        foreach( KeyValuePair<Base6Directions.Direction,Vector3D> aVectorPair in aVectorReference)
-        {
-                Base6Directions.Direction aKey  = aVectorPair.Key;
-                Vector3D aVector = aVectorPair.Value;
-            
-                if (aForward.Equals(aVector,0.00001))
-                {
-                     if (!myThrusters.ContainsKey(aKey)) 
-                    { 
-                        myThrusters.Add(aKey,new List<IMyThrust>()); 
-                    }         
-                    myThrusters[aKey].Add(aThruster);  
-
-                    // DEBUG: 
-                    Echo(aKey.ToString() + " " + aThruster.CustomName); 
-                    // DEBUG: end
-                    break;
-                }
-        }
-    } 
-    
-
-    // TODO: the panel handling should be done with the CustomData as well
-    myPanel = GridTerminalSystem.GetBlockWithName(THRUST_PANEL_NAME) as IMyTextPanel;
-
-
+        aPanel.FontSize = 1f; 
+        aPanel.Font = "Monospace"; 
+        aPanel.ShowPublicTextOnScreen();
+    }
 } 
  
 public void Save() {} 
@@ -124,13 +83,7 @@ public void Main(string argument, UpdateType updateSource)
 { 
     mTick++;
 
-    // DEBUG:
-    foreach(KeyValuePair<Base6Directions.Direction,List<IMyThrust>> aPair in myThrusters)
-    {
-        Echo("Update["+mTick+"]  "+updateSource.ToString() + " " + aPair.Key.ToString() + " : " + aPair.Value.Count);
-    }
-    // DEBUG: end
-
+ 
     Echo(myShipConnector.Status.ToString());
     Echo(myLandingGear.LockMode.ToString());
 
@@ -191,35 +144,48 @@ public void Main(string argument, UpdateType updateSource)
     aOutput  = aOutput + String.Format("{0}: \n {1} / {2} \n Gravity: {3} \n\n",
                 myRemoteControl.CustomName,aMass.BaseMass,aMass.TotalMass,aGravity.Length().ToString("0.000"));
 
-    foreach(KeyValuePair<Base6Directions.Direction,List<IMyThrust>> aPair in myThrusters) 
-    {
-        Base6Directions.Direction aKey = aPair.Key;
-        List<IMyThrust> aValue = aPair.Value;
-
-        double aDirectionForce = 0;
-        double aMaxDirectionForce = 0;
-        double aEffectiveDirectionForce = 0;
-        foreach(IMyThrust aThruster in aValue)
-        {
-            double aForce = aThruster.CurrentThrust;
-            double aMaxForce = aThruster.MaxThrust;
-            aDirectionForce += aForce;
-            aMaxDirectionForce += aMaxForce;
-            aEffectiveDirectionForce += aThruster.MaxEffectiveThrust;
-        }
-        double aAcceleration = aDirectionForce/aMass.TotalMass;
-        double aEfficiency = aDirectionForce/aMaxDirectionForce;
-        double aMaxDirectionAcceleration = aEffectiveDirectionForce/aMass.TotalMass;
-        //aOutput = aOutput + String.Format("  {0}|{1}|{2} [{3}] \n",
-        //            aAcceleration.ToString("0.000"),aDirectionForce.ToString("000000"),aKey.ToString()[0],aValue.Count.ToString("00"));
-        aOutput = aOutput + String.Format("  {0}|{1}|{2}|{3} [{4}] \n", 
-                    aAcceleration.ToString("00.00"),aEfficiency.ToString("00.00"),aMaxDirectionAcceleration.ToString("00.00"),aKey.ToString()[0],aValue.Count.ToString("00")); 
-           
-    }
-
     aOutput = aOutput + aIndicator + "\n";
 
-    myPanel.WritePublicText(aOutput,false);
+
+    Vector3D aCenterOfMass = myCockpit.CenterOfMass;
+    Vector3D aVolumeCenter  = Me.CubeGrid.WorldVolume.Center;
+    double aVolumeRadius = Me.CubeGrid.WorldVolume.Radius;
+    double aSize = Me.CubeGrid.GridSize;     
+
+   
+    double  aDistance = Vector3D.Distance(aVolumeCenter,aCenterOfMass);
+
+    aOutput += String.Format("Grid Volume:\n Center: {0}\n Radius: {1}\n Size: {2}\n Blocks: {3}\n",
+                aDistance,
+                aVolumeRadius,
+                aSize,
+                aVolumeRadius/aSize);
+
+     Me.CustomData = String.Format("GPS: Ship Center:{0}:{1}:{2}:",aVolumeCenter.X,aVolumeCenter.Y,aVolumeCenter.Z);
+
+    Vector3D aLinearVelocity = myCockpit.GetShipVelocities().LinearVelocity;
+    double aSpeed = aLinearVelocity.Length();
+
+    Vector3D aUp = myCockpit.WorldMatrix.Up; 
+    Vector3D aLeft = myCockpit.WorldMatrix.Left;   
+    Vector3D aForward = myCockpit.WorldMatrix.Forward;  
+
+    double aUpVelo = aLinearVelocity.Dot(aUp);
+    double aForwardVelo = aLinearVelocity.Dot(aForward); 
+    double aLeftVelo = aLinearVelocity.Dot(aLeft);  
+
+
+   // double aBreakDistanceUp = -aSpeed / (2 * )
+
+
+    aOutput += String.Format("Speed: {0}\n [F] Speed: {1}\n [L] Speed: {2}\n [U] Speed: {3}",
+                aSpeed,
+                aForwardVelo,
+                aLeftVelo,
+                aUpVelo);
+
+
+    myTextPanels[0].WritePublicText(aOutput,false);
 } 
 
 /**
@@ -278,7 +244,7 @@ public bool HandleTool()
     if (myTool == null || !myTool.IsFunctional)
     {
         // NOTE: after the new check we wait one cycle by jumping out of the method
-        myTool = GetFirstBlockOfType(myTool);
+        GetFirstBlockOfType(ref myTool, b => b.CubeGrid == Me.CubeGrid);
     }
     else
     {
