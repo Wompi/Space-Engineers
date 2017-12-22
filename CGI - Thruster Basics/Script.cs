@@ -211,20 +211,22 @@ public class CGI_ThrustManager
 
         // TODO: holly mother of programming fix this ASAP this is horrible style and very bad design
         // well - it has to do for now to see if it works
+        // also - the direction checks are opposite - beware of that
+
         foreach(CGI_ThrusterDirectionStats aStats in mDirectionStatsList)
         {
             if (mLocalVelocity.X > 0)
             {
                 if (aStats.mDirection == Base6Directions.Direction.Up)
                 {
-                    mLocalBreakDistance.X = -mLocalVelocity.X / (2 * aStats.mAccelerationCurrent);
+                    mLocalBreakDistance.X = -(mLocalVelocity.X*mLocalVelocity.X) / (2 * -aStats.mAccelerationEffective);
                 }
             }
             else if (mLocalVelocity.X < 0)
             {
                 if (aStats.mDirection == Base6Directions.Direction.Down)
                 {
-                    mLocalBreakDistance.X = -mLocalVelocity.X / (2 * aStats.mAccelerationCurrent);
+                    mLocalBreakDistance.X = -(mLocalVelocity.X*mLocalVelocity.X)  / (2 * -aStats.mAccelerationEffective);
                 }
             }
 
@@ -232,14 +234,14 @@ public class CGI_ThrustManager
             {
                 if (aStats.mDirection == Base6Directions.Direction.Forward)
                 {
-                    mLocalBreakDistance.Y = -mLocalVelocity.Y / (2 * aStats.mAccelerationCurrent);
+                    mLocalBreakDistance.Y = -(mLocalVelocity.Y*mLocalVelocity.Y)  / (2 * -aStats.mAccelerationEffective);
                 }
             }
             else if (mLocalVelocity.Y < 0)
             {
                 if (aStats.mDirection == Base6Directions.Direction.Backward)
                 {
-                    mLocalBreakDistance.Y = -mLocalVelocity.Y / (2 * aStats.mAccelerationCurrent);
+                    mLocalBreakDistance.Y = -(mLocalVelocity.Y*mLocalVelocity.Y)  / (2 * -aStats.mAccelerationEffective);
                 }
             }
 
@@ -247,14 +249,14 @@ public class CGI_ThrustManager
             {
                 if (aStats.mDirection == Base6Directions.Direction.Left)
                 {
-                    mLocalBreakDistance.Z = -mLocalVelocity.Z / (2 * aStats.mAccelerationCurrent);
+                    mLocalBreakDistance.Z = -(mLocalVelocity.Z*mLocalVelocity.Z)  / (2 * -aStats.mAccelerationEffective);
                 }
             }
             else if (mLocalVelocity.Z < 0)
             {
                 if (aStats.mDirection == Base6Directions.Direction.Right)
                 {
-                    mLocalBreakDistance.Z = -mLocalVelocity.Z / (2 * aStats.mAccelerationCurrent);
+                    mLocalBreakDistance.Z = -(mLocalVelocity.Z*mLocalVelocity.Z)  / (2 * -aStats.mAccelerationEffective);
                 }
             }
 
@@ -312,15 +314,21 @@ public class CGI_ThrustManager
     {
         mStatisticsString = " Local Velocities / Break Distance: \n";
 
-        mStatisticsString += String.Format("Speed: {0}\n [F] Speed: {1:000.00} / {2:000.00}\n [L] Speed: {3:000.00} / {4:000.00}\n [U] Speed: {5:000.00} / {6:000.00}\n",
-                    mLocalVelocity.Length(),
-                    mLocalVelocity.Y,
-                    mLocalBreakDistance.Y,
-                    mLocalVelocity.Z,
-                    mLocalBreakDistance.Z,
-                    mLocalVelocity.X,
-                    mLocalBreakDistance.X);
+        //mStatisticsString += String.Format("Speed: {0}\n [F] {1:000.00} / {2:000.00}\n [L] {3:000.00} / {4:000.00}\n [U] {5:000.00} / {6:000.00}\n",
+        //            mLocalVelocity.Length(),
+         //           mLocalVelocity.Y,
+        //            mLocalBreakDistance.Y,
+        //            mLocalVelocity.Z,
+         //           mLocalBreakDistance.Z,
+         //           mLocalVelocity.X,
+          //          mLocalBreakDistance.X);
 
+
+   mStatisticsString += String.Format("Speed: {0}\n [F] {1:000.00}\n [L] {2:000.00}\n [U] {3:000.00}\n", 
+                    mLocalVelocity.Length(), 
+                    mLocalBreakDistance.Y, 
+                    mLocalBreakDistance.Z, 
+                    mLocalBreakDistance.X);
         return true;
     }
 
