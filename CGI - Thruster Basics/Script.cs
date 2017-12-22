@@ -36,25 +36,28 @@ public void Main(string argument, UpdateType updateSource)
     if (isThrustDirectionSet)
     {
         IMyShipController aCurrentController = GetControlledController();
-        MyShipMass aMass = aCurrentController.CalculateShipMass();
-        Vector3D aGravity = aCurrentController.GetNaturalGravity();
-        double aGravityForce = aGravity.Length() * aMass.PhysicalMass;
-
-        myThrustManager.ProcessCalculations(aCurrentController.CalculateShipMass().PhysicalMass);
-
-        aOut += String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4}\n GForce: {5}\n\n",
-                aCurrentController.CustomName,
-                aMass.BaseMass,
-                aMass.TotalMass,
-                aMass.PhysicalMass,
-                aGravity.Length().ToString("0.000"),
-                aGravityForce.ToString("0000000"));
-
-        if (!argument.Equals(String.Empty))
+        if (aCurrentController != null)
         {
-            myThrustManager.ProcessCommand(argument);
+            MyShipMass aMass = aCurrentController.CalculateShipMass();
+            Vector3D aGravity = aCurrentController.GetNaturalGravity();
+            double aGravityForce = aGravity.Length() * aMass.PhysicalMass;
+
+            myThrustManager.ProcessCalculations(aCurrentController);
+
+            aOut += String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4}\n GForce: {5}\n\n",
+                    aCurrentController.CustomName,
+                    aMass.BaseMass,
+                    aMass.TotalMass,
+                    aMass.PhysicalMass,
+                    aGravity.Length().ToString("0.000"),
+                    aGravityForce.ToString("0000000"));
+
+            if (!argument.Equals(String.Empty))
+            {
+                myThrustManager.ProcessCommand(argument);
+            }
+            aOut += myThrustManager.Statistics(argument);
         }
-        aOut += myThrustManager.Statistics(argument);
     }
     myLCDPanels[1].WritePublicText(aOut,false);
 }
@@ -133,9 +136,10 @@ public class CGI_ThrustManager
         return aResult;
     }
 
-    public void ProcessCalculations(double pPhysicalMass, IMyShipController pController)
+    public void ProcessCalculations(IMyShipController pController)
     {
         mDirectionStatsList = new List<CGI_ThrusterDirectionStats>();
+        double aPhysicalMass = pController.CalculateShipMass().PhysicalMass;
 
         foreach(KeyValuePair<Base6Directions.Direction,List<IMyThrust>> aPair in myThrustDirections)
         {
@@ -158,9 +162,9 @@ public class CGI_ThrustManager
                 }
             }
 
-            aDirectionStats.mAccelerationMax = aDirectionStats.mDirectionForceMax / pPhysicalMass;
-            aDirectionStats.mAccelerationEffective = aDirectionStats.mDirectionForceEffective / pPhysicalMass;
-            aDirectionStats.mAccelerationCurrent = aDirectionStats.mDirectionForceCurrent / pPhysicalMass;
+            aDirectionStats.mAccelerationMax = aDirectionStats.mDirectionForceMax / aPhysicalMass;
+            aDirectionStats.mAccelerationEffective = aDirectionStats.mDirectionForceEffective / aPhysicalMass;
+            aDirectionStats.mAccelerationCurrent = aDirectionStats.mDirectionForceCurrent / aPhysicalMass;
 
             aDirectionStats.mEfficiency = aDirectionStats.mDirectionForceCurrent / aDirectionStats.mDirectionForceMax;
 
