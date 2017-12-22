@@ -10,6 +10,7 @@
  *      v0.20 - change to a manager based design to make it a bit more usable
  *      v0.21 - the usual bugfixes for a blind commit
  *      v0.22 - a little bit shuffling for the display function arguments can be 'ForceMax,ForceEffective,ForceCurrent'
+ *      v0.30 - lets see if we can calculate the local velocities and the current break distances - I highly doubt it :)
  */
 
 public CGI_ThrustManager myThrustManager = new CGI_ThrustManager();
@@ -83,11 +84,15 @@ public class CGI_ThrustManager
     private Func<string,bool> mArgumentFunction = null;
     private string mStatisticsString = "";
 
+    private Vector3D mLocalVelocity = Vector3D.Zero;
+    private Vector3D mLocalBreakDistance = Vector3D.Zero;
+
     public CGI_ThrustManager()
     {
         mArguments["ForceMax"] = CommandForceMax;
         mArguments["ForceCurrent"] = CommandForceCurrent;
         mArguments["ForceEffective"] = CommandForceEffective;
+        mArguments["LocalVelocities"] = CommandLoacalVelocities;
     }
 
     public string LoadEntities(IMyGridTerminalSystem pGTS, Func<IMyTerminalBlock,bool> pCheck = null)
@@ -128,7 +133,7 @@ public class CGI_ThrustManager
         return aResult;
     }
 
-    public void ProcessCalculations(double pPhysicalMass)
+    public void ProcessCalculations(double pPhysicalMass, IMyShipController pController)
     {
         mDirectionStatsList = new List<CGI_ThrusterDirectionStats>();
 
@@ -161,6 +166,9 @@ public class CGI_ThrustManager
 
             mDirectionStatsList.Add(aDirectionStats);
         }
+
+        ProcessVelocities(pController);
+
     }
 
     public string Statistics(string pArgument)
@@ -183,6 +191,73 @@ public class CGI_ThrustManager
         }
         return aResult;
     }
+
+    private bool ProcessVelocities(IMyShipController pController)
+    {
+        Vector3D aLinearVelocity = pController.GetShipVelocities().LinearVelocity;
+        double aSpeed = aLinearVelocity.Length();
+
+        Vector3D aUp = pController.WorldMatrix.Up;
+        Vector3D aLeft = pController.WorldMatrix.Left;
+        Vector3D aForward = pController.WorldMatrix.Forward;
+
+        mLocalVelocity.X = aLinearVelocity.Dot(aUp);        // UP
+        mLocalVelocity.Y = aLinearVelocity.Dot(aForward);   // FORWARD
+        mLocalVelocity.Z = aLinearVelocity.Dot(aLeft);      // LEFT
+
+        // TODO: holly mother of programming fix this ASAP this is horrible style and very bad design
+        // well - it has to do for now to see if it works
+        foreach(CGI_ThrusterDirectionStats aStats in mDirectionStatsList)
+        {
+            if (mLocalVelocity.X > 0)
+            {
+                if (aStats.mDirection == Base6Directions.Direction.Up)
+                {
+                    mLocalBreakDistance.X = -mLocalVelocity.X / (2 * aStats.mAccelerationCurrent);
+                }
+            }
+            else if (mLocalVelocity.X < 0)
+            {
+                if (aStats.mDirection == Base6Directions.Direction.Down)
+                {
+                    mLocalBreakDistance.X = -mLocalVelocity.X / (2 * aStats.mAccelerationCurrent);
+                }
+            }
+
+            if (mLocalVelocity.Y > 0)
+            {
+                if (aStats.mDirection == Base6Directions.Direction.Forward)
+                {
+                    mLocalBreakDistance.Y = -mLocalVelocity.Y / (2 * aStats.mAccelerationCurrent);
+                }
+            }
+            else if (mLocalVelocity.Y < 0)
+            {
+                if (aStats.mDirection == Base6Directions.Direction.Backward)
+                {
+                    mLocalBreakDistance.Y = -mLocalVelocity.Y / (2 * aStats.mAccelerationCurrent);
+                }
+            }
+
+            if (mLocalVelocity.Z > 0)
+            {
+                if (aStats.mDirection == Base6Directions.Direction.Left)
+                {
+                    mLocalBreakDistance.Z = -mLocalVelocity.Z / (2 * aStats.mAccelerationCurrent);
+                }
+            }
+            else if (mLocalVelocity.Z < 0)
+            {
+                if (aStats.mDirection == Base6Directions.Direction.Right)
+                {
+                    mLocalBreakDistance.Z = -mLocalVelocity.Z / (2 * aStats.mAccelerationCurrent);
+                }
+            }
+
+        }
+        return true;
+    }
+
 
     private bool CommandForceMax(string pCommand)
     {
@@ -226,6 +301,22 @@ public class CGI_ThrustManager
                 aStats.mDirection.ToString()[0],
                 aStats.mThrusters.ToString("00"));
         }
+        return true;
+    }
+
+    private bool CommandLoacalVelocities(string pCommand)
+    {
+        mStatisticsString = " Local Velocities / Break Distance: \n";
+
+        mStatisticsString += String.Format("Speed: {0}\n [F] Speed: {1:000.00} / {2:000.00}\n [L] Speed: {3:000.00} / {4:000.00}\n [U] Speed: {5:000.00} / {6:000.00}\n",
+                    mLocalVelocity.Length(),
+                    mLocalVelocity.Y,
+                    mLocalBreakDistance.Y,
+                    mLocalVelocity.Z,
+                    mLocalBreakDistance.Z,
+                    mLocalVelocity.X,
+                    mLocalBreakDistance.X);
+
         return true;
     }
 
