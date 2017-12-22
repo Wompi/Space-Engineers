@@ -165,7 +165,10 @@ public class CGI_ThrustManager
 
     public string Statistics(string pArgument)
     {
-        mArgumentFunction(pArgument);
+        if (mArgumentFunction != null)
+        {
+            mArgumentFunction(pArgument);
+        }
         return mStatisticsString;
     }
 
