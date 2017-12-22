@@ -8,7 +8,8 @@
  *      v0.12 - forces are now calculated as EffectiveForce as well - accounts for gravity related thrust adjustments
  *      v0.13 - changed the remote controller interface to shipController
  *      v0.20 - change to a manager based design to make it a bit more usable
- *      V0.21 - the usual bugfixes for a blind commit
+ *      v0.21 - the usual bugfixes for a blind commit
+ *      v0.22 - a little bit shuffling for the display function arguments can be 'ForceMax,ForceEffective,ForceCurrent'
  */
 
 public CGI_ThrustManager myThrustManager = new CGI_ThrustManager();
@@ -29,11 +30,6 @@ public void Save() {}
 public void Main(string argument, UpdateType updateSource)
 {
     string aOut = "";
-    string bOut = "";
-    string cOut = "";
-
-
-
 
     bool isThrustDirectionSet = myThrustManager.SetDirections();
     if (isThrustDirectionSet)
@@ -45,7 +41,7 @@ public void Main(string argument, UpdateType updateSource)
 
         myThrustManager.ProcessCalculations(aCurrentController.CalculateShipMass().PhysicalMass);
 
-        aOut = aOut + String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4}\n GForce: {5}\n\n",
+        aOut += String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4}\n GForce: {5}\n\n",
                 aCurrentController.CustomName,
                 aMass.BaseMass,
                 aMass.TotalMass,
@@ -53,32 +49,13 @@ public void Main(string argument, UpdateType updateSource)
                 aGravity.Length().ToString("0.000"),
                 aGravityForce.ToString("0000000"));
 
-        aOut = aOut + myThrustManager.Statistics("CurrentForce");
-
-        bOut = bOut + String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4}\n GForce: {5}\n\n",
-                  aCurrentController.CustomName,
-                  aMass.BaseMass,
-                  aMass.TotalMass,
-                  aMass.PhysicalMass,
-                  aGravity.Length().ToString("0.000"),
-                  aGravityForce.ToString("0000000"));
-
-        bOut = bOut + myThrustManager.Statistics("MaxForce");
-
-        cOut = cOut + String.Format("{0}: \n Base: {1}\n  Total: {2}\n Physical: {3}\n Gravity: {4}\n GForce: {5}\n\n",
-                aCurrentController.CustomName,
-                aMass.BaseMass,
-                aMass.TotalMass,
-                aMass.PhysicalMass,
-                aGravity.Length().ToString("0.000"),
-                aGravityForce.ToString("0000000"));
-
-        cOut = cOut + myThrustManager.Statistics("EffectiveForce");
+        if (!argument.Equals(String.Empty))
+        {
+            myThrustManager.ProcessCommand(argument);
+        }
+        aOut += myThrustManager.Statistics(argument);
     }
-
     myLCDPanels[1].WritePublicText(aOut,false);
-    myLCDPanels[2].WritePublicText(bOut,false);
-    myLCDPanels[3].WritePublicText(bOut,false);
 }
 
 public IMyShipController GetControlledController()
@@ -102,6 +79,16 @@ public class CGI_ThrustManager
     private Dictionary<Base6Directions.Direction,List<IMyThrust>> myThrustDirections = new Dictionary<Base6Directions.Direction,List<IMyThrust>>();
     private List<CGI_ThrusterDirectionStats> mDirectionStatsList = null;
 
+    private Dictionary<string, Func<string,bool>> mArguments = new Dictionary<string, Func<string,bool>>();
+    private Func<string,bool> mArgumentFunction = null;
+    private string mStatisticsString = "";
+
+    public CGI_ThrustManager()
+    {
+        mArguments["ForceMax"] = CommandForceMax;
+        mArguments["ForceCurrent"] = CommandForceCurrent;
+        mArguments["ForceEffective"] = CommandForceEffective;
+    }
 
     public string LoadEntities(IMyGridTerminalSystem pGTS, Func<IMyTerminalBlock,bool> pCheck = null)
     {
@@ -178,49 +165,66 @@ public class CGI_ThrustManager
 
     public string Statistics(string pArgument)
     {
-        string aOut = "";
-        if (pArgument.Equals("CurrentForce"))
-        {
-            aOut = aOut + " Current Force: \n";
-            foreach (CGI_ThrusterDirectionStats aStats in mDirectionStatsList)
-            {
-                aOut = aOut + String.Format("  {0}|{1}|{2}|[{3}][{4}]\n",
-                    aStats.mAccelerationCurrent.ToString("000"),
-                    aStats.mDirectionForceCurrent.ToString("0000000"),
-                    aStats.mEfficiency.ToString("0.00"),
-                    aStats.mDirection.ToString()[0],
-                    aStats.mThrusters.ToString("00"));
-            }
-        }
-        else if (pArgument.Equals("MaxForce"))
-        {
-            aOut = aOut + " Max Force: \n";
-            foreach (CGI_ThrusterDirectionStats aStats in mDirectionStatsList)
-            {
-                aOut = aOut + String.Format("  {0}|{1}|{2}|[{3}][{4}]\n",
-                    aStats.mAccelerationMax.ToString("000"),
-                    aStats.mDirectionForceMax.ToString("0000000"),
-                    aStats.mEfficiency.ToString("0.00"),
-                    aStats.mDirection.ToString()[0],
-                    aStats.mThrusters.ToString("00"));
-            }
-        }
-        else if (pArgument.Equals("EffectiveForce"))
-        {
-            aOut = aOut + " Effective Force: \n";
-            foreach (CGI_ThrusterDirectionStats aStats in mDirectionStatsList)
-            {
-                aOut = aOut + String.Format("  {0}|{1}|{2}|[{3}][{4}]\n",
-                    aStats.mAccelerationEffective.ToString("000"),
-                    aStats.mDirectionForceEffective.ToString("0000000"),
-                    aStats.mEfficiency.ToString("0.00"),
-                    aStats.mDirection.ToString()[0],
-                    aStats.mThrusters.ToString("00"));
-            }
-        }
-        return aOut;
+        mArgumentFunction(pArgument);
+        return mStatisticsString;
     }
 
+    public bool ProcessCommand(string pArgument)
+    {
+        bool aResult = false;
+        Func<string, bool> aArgumentFunction =  mArguments[pArgument];
+        if (aArgumentFunction != null)
+        {
+            mArgumentFunction = aArgumentFunction;
+            aResult = true;
+        }
+        return aResult;
+    }
+
+    private bool CommandForceMax(string pCommand)
+    {
+        mStatisticsString = " Max Force: \n";
+        foreach (CGI_ThrusterDirectionStats aStats in mDirectionStatsList)
+        {
+            mStatisticsString += String.Format("  {0}|{1}|{2}|[{3}][{4}]\n",
+                aStats.mAccelerationMax.ToString("000"),
+                aStats.mDirectionForceMax.ToString("0000000"),
+                aStats.mEfficiency.ToString("0.00"),
+                aStats.mDirection.ToString()[0],
+                aStats.mThrusters.ToString("00"));
+        }
+        return true;
+    }
+
+    private bool CommandForceCurrent(string pCommand)
+    {
+        mStatisticsString = " Current Force: \n";
+        foreach (CGI_ThrusterDirectionStats aStats in mDirectionStatsList)
+        {
+            mStatisticsString += String.Format("  {0}|{1}|{2}|[{3}][{4}]\n",
+                aStats.mAccelerationCurrent.ToString("000"),
+                aStats.mDirectionForceCurrent.ToString("0000000"),
+                aStats.mEfficiency.ToString("0.00"),
+                aStats.mDirection.ToString()[0],
+                aStats.mThrusters.ToString("00"));
+        }
+        return true;
+    }
+
+    private bool CommandForceEffective(string pCommand)
+    {
+        mStatisticsString = " Effective Force: \n";
+        foreach (CGI_ThrusterDirectionStats aStats in mDirectionStatsList)
+        {
+            mStatisticsString += String.Format("  {0}|{1}|{2}|[{3}][{4}]\n",
+                aStats.mAccelerationEffective.ToString("000"),
+                aStats.mDirectionForceEffective.ToString("0000000"),
+                aStats.mEfficiency.ToString("0.00"),
+                aStats.mDirection.ToString()[0],
+                aStats.mThrusters.ToString("00"));
+        }
+        return true;
+    }
 
     struct CGI_ThrusterDirectionStats
     {
