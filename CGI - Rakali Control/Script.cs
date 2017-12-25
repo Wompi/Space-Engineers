@@ -68,6 +68,11 @@ public void GetFirstBlockOfType<T>( ref T pBlock, Func<T, bool> pCheck = null ) 
     GridTerminalSystem.GetBlocksOfType(myGyros, aCheck);
     GridTerminalSystem.GetBlocksOfType(myReactors, aCheck);
     GridTerminalSystem.GetBlocksOfType(mySorters, aCheck);
+    GridTerminalSystem.GetBlocksOfType(myCameras, aCheck);
+    GridTerminalSystem.GetBlocksOfType(myThrusters, aCheck);
+    GridTerminalSystem.GetBlocksOfType(mySpotLights, aCheck);
+
+
 
 
     // NOTE: uncomment this if the bug for chrashing the game is be fixed
