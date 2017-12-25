@@ -35,7 +35,7 @@ List<IMyReflectorLight> mySpotLights = new List<IMyReflectorLight>();   // The s
 
 static double ANTENNA_ENERGY_FACTOR = 0.004;    // NOTE: could be changed in future versions for now the energy input is linear (4W)
 
-public void GetFirstBlockOfType<T>( ref T pBlock, Func<IMyTerminalBlock, bool> pCheck = null ) where T : class
+public void GetFirstBlockOfType<T>( ref T pBlock, Func<T, bool> pCheck = null ) where T : class
 {
     List<T> aList = new List<T>();
     GridTerminalSystem.GetBlocksOfType<T>(aList, pCheck);
