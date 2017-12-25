@@ -69,7 +69,7 @@ public void GetFirstBlockOfType<T>( ref T pBlock, Func<T, bool> pCheck = null ) 
     GridTerminalSystem.GetBlocksOfType(myBatteries, aCheck);
     GridTerminalSystem.GetBlocksOfType(myDrills, aCheck);
     GridTerminalSystem.GetBlocksOfType(myEjectors, aEjectorCheck);
-    GridTerminalSystem.GetBlocksOfType(myTextPanels, aCheck);
+    GridTerminalSystem.GetBlocksOfType(myLCDPanels, aCheck);
     GridTerminalSystem.GetBlocksOfType(myCodeBlocks, aCheck);
     GridTerminalSystem.GetBlocksOfType(myGattlingGuns, aCheck);
     GridTerminalSystem.GetBlocksOfType(myGyros, aCheck);
@@ -129,6 +129,7 @@ public string HandleBatteries(bool isConnected)
     double aBatteryInput = 0;
     double aBatteryOutput = 0;
     double aBatteryStore = 0;
+    double aBatteryMaxStore = 0;
 
     foreach( IMyBatteryBlock aBattery in myBatteries)
     {
@@ -145,16 +146,25 @@ public string HandleBatteries(bool isConnected)
         aBatteryInput += aBattery.CurrentInput;
         aBatteryOutput += aBattery.CurrentOutput;
         aBatteryStore += aBattery.CurrentStoredPower;
+        aBatteryMaxStore += aBattery.MaxStoredPower;
     }
 
     double aCurrentUse = aBatteryOutput - aBatteryInput;
-    double aBatteryTime = -1;
+
     if (aCurrentUse > 0)
     {
-        aBatteryTime = aBatteryStore / aCurrentUse;
+        TimeSpan aSpan = new TimeSpan(aBatteryStore / aCurrentUse * 60 * 60 * 10000000);
+        aResult += aStatusString + String.Format(" <{0}{1}{2}> ",C_RED,aSpan.TosString("hh\\:mm\\:ss"),C_RED);
     }
-
-    aResult += aStatusString + String.Format("L: {0} h",aBatteryTime == -1 : " --- " : aBatteryTime.TosString("000.0"));
+    else if (aCurrentUse < 0)
+    {
+        TimeSpan aSpan = new TimeSpan(aBatteryStore - aBatteryMaxStore / aCurrentUse * 60 * 60 * 10000000);
+        aResult += aStatusString + String.Format(" >{0}{1}{2}< ",C_GREEN,aSpan.TosString("hh\\:mm\\:ss"),C_GREEN);
+    }
+    else
+    {
+        aResult += aStatusString + "  --:--:--  ");
+    }
 
     //Echo(String.Format("   IN: {0:0.000} - Store: {1:0.000} Recharge: {2}",aBatteryInput,aBatteryStore, isRecharge));
     //Echo(String.Format("   Livetime: {0:0.000}",aBatteryTime));
@@ -175,7 +185,7 @@ public void Debug()
     Echo("Ore Detetector: "+myOreDetector.CustomName);
 
     Echo("Batteries: "+myBatteries.Count);
-    Echo("LCD Panels: "+myTextPanels.Count);
+    Echo("LCD Panels: "+myLCDPanels.Count);
     Echo("Drills: "+myDrills.Count);
     Echo("Ejectors: "+myEjectors.Count);
     Echo("Cameras: "+myCameras.Count);
