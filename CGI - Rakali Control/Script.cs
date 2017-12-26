@@ -106,11 +106,12 @@ public void Main(string argument, UpdateType updateSource)
     else
     {
         aOut += HandleBatteries(false);
+        aOut += HandleDrills(false);
     }
 
     Debug();
 
-    myLCDPanels[1].WritePublicText(aOut,false);
+    myLCDPanels[0].WritePublicText(aOut,false);
 }
 
 /**
@@ -168,7 +169,7 @@ public string HandleBatteries(bool isConnected)
     //Echo(String.Format("   IN: {0:0.000} - Store: {1:0.000} Recharge: {2}",aBatteryInput,aBatteryStore, isRecharge));
     //Echo(String.Format("   Livetime: {0:0.000}",aBatteryTime));
 
-    return aResult;
+    return aResult + "\n";
 }
 
 /**
@@ -196,7 +197,7 @@ public string HandleDrills(bool isConnected)
             // Check the gneral functionality of the drill
             if (!aDrill.IsFunctional)
             {
-                aResult += aResult += String.Format("Drill: {0}\n  Status: {1} (damaged)\n\n",
+                aResult += aResult += String.Format("{0}\nStatus: {1} (damaged)\n\n",
                             aDrill.CustomName,
                             C_RED);
                 continue;
@@ -217,11 +218,11 @@ public string HandleDrills(bool isConnected)
             // {
             //     aDrill.Enabled = false;
             // }
-            int aLength = 60;
+            int aLength = 23;
             int aIndicator = (int) (aFillPercent * aLength);
-            string aGauge = "  [ " + new string('!',aIndicator) + new string('.',aLength-aIndicator)+"]";
+            string aGauge = "[" + new string('!',aIndicator) + new string('.',aLength-aIndicator)+"]";
 
-            aResult += String.Format("Drill: {0}\n  Status: {1}\n{2}\n",
+            aResult += String.Format("{0}\nStatus: {1}\n{2}\n",
                         aDrill.CustomName,
                         aStatus,
                         aGauge);
