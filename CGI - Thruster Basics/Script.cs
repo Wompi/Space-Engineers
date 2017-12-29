@@ -18,6 +18,8 @@ public CGI_ThrustManager myThrustManager = new CGI_ThrustManager();
 public List<IMyShipController> myShipControllers = new List<IMyShipController>();
 public List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 
+public bool COMPENSATE_GRAVITY = true;
+
 public Program()
 {
     Runtime.UpdateFrequency  = UpdateFrequency.Update10;
@@ -143,19 +145,26 @@ public class CGI_ThrustManager
         double aPhysicalMass = pController.CalculateShipMass().PhysicalMass;
         //Vector3D aGravity = aCurrentController.GetNaturalGravity();
 
-        // /// this is the local gravity acceleration
-        // Vector3D aUp = pController.WorldMatrix.Up;
-        // Vector3D aLeft = pController.WorldMatrix.Left;
-        // Vector3D aForward = pController.WorldMatrix.Forward;
-        //
-        // //double aGravityForce = aGravity.Length() * aMass.PhysicalMass;
-        //
-        //
-        // Vector3D aLocalGravity = Vector3D.Zero;
-        // aLocalGravity.X = aGravity.Dot(aUp);        // UP
-        // aLocalGravity.Y = aGravity.Dot(aForward);   // FORWARD
-        // aLocalGravity.Z = aGravity.Dot(aLeft);      // LEFT
-        // ///
+        if (COMPENSATE_GRAVITY)
+        {
+            /// this is the local gravity acceleration
+            Vector3D aUp = pController.WorldMatrix.Up;
+            Vector3D aLeft = pController.WorldMatrix.Left;
+            Vector3D aForward = pController.WorldMatrix.Forward;
+
+            //double aGravityForce = aGravity.Length() * aMass.PhysicalMass;
+
+            Vector3D aLocalGravity = Vector3D.Zero;
+            Dictionary<Base6Directions.Direction,double> aLocalGravity = new Dictionary<<Base6Directions.Direction,double>();
+            aLocalGravity[Base6Directions.Direction.Forward] = aGravity.Dot(aForward);   // FORWARD;
+            aLocalGravity[Base6Directions.Direction.Backward] = -aLocalGravity[Base6Directions.Direction.Forward];
+
+            aLocalGravity[Base6Directions.Direction.Up] = aGravity.Dot(aUp);   // UP;
+            aLocalGravity[Base6Directions.Direction.Down] = -aLocalGravity[Base6Directions.Direction.Up];
+
+            aLocalGravity[Base6Directions.Direction.Left] = aGravity.Dot(aLeft);   // UP;
+            aLocalGravity[Base6Directions.Direction.Right] = -aLocalGravity[Base6Directions.Direction.Left];
+        }
 
 
         foreach(KeyValuePair<Base6Directions.Direction,List<IMyThrust>> aPair in myThrustDirections)
@@ -175,8 +184,15 @@ public class CGI_ThrustManager
                     aDirectionStats.mDirectionForceEffective += aThruster.MaxEffectiveThrust;
                     aDirectionStats.mDirectionForceMax += aThruster.MaxThrust;
                     aDirectionStats.mThrusters += 1;
-
                 }
+            }
+
+            if (COMPENSATE_GRAVITY)
+            {
+                double aGravityDirectionForce = aLocalGravity[aKey] * aPhysicalMass;
+                aDirectionStats.mDirectionForceCurrent += aGravityDirectionForce ;
+                aDirectionStats.mDirectionForceEffective += aGravityDirectionForce;
+                aDirectionStats.mDirectionForceMax += aGravityDirectionForce;
             }
 
             aDirectionStats.mAccelerationMax = aDirectionStats.mDirectionForceMax / aPhysicalMass;
@@ -187,9 +203,7 @@ public class CGI_ThrustManager
 
             mDirectionStatsList.Add(aDirectionStats);
         }
-
         ProcessVelocities(pController);
-
     }
 
     public string Statistics(string pArgument)
@@ -231,10 +245,6 @@ public class CGI_ThrustManager
         /// this is the local gravity acceleration
 
         //double aGravityForce = aGravity.Length() * aMass.PhysicalMass;
-        Vector3D aGravity = pController.GetNaturalGravity();
-        mLocalGravity.X = aGravity.Dot(aUp);        // UP
-        mLocalGravity.Y = aGravity.Dot(aForward);   // FORWARD
-        mLocalGravity.Z = aGravity.Dot(aLeft);      // LEFT
 
 
         // TODO: holly mother of programming fix this ASAP this is horrible style and very bad design
@@ -351,16 +361,16 @@ public class CGI_ThrustManager
          //           mLocalVelocity.X,
           //          mLocalBreakDistance.X);
 
-        mStatisticsString += String.Format("Speed: {0}\n [F] {1:000.00}\n [L] {2:000.00}\n [U] {3:000.00}\n\n", 
+        mStatisticsString += String.Format("Speed: {0}\n [F] {1:000.00}\n [L] {2:000.00}\n [U] {3:000.00}\n\n",
                     mLocalVelocity.Length(),
                     mLocalBreakDistance.Y,
                     mLocalBreakDistance.Z,
                     mLocalBreakDistance.X);
-        mStatisticsString += String.Format("Gravity: {0}\n [F] {1:000.00}\n [L] {2:000.00}\n [U] {3:000.00}\n",
-                    mLocalGravity.Length(),
-                    mLocalGravity.Y,
-                    mLocalGravity.Z,
-                    mLocalGravity.X);
+        // mStatisticsString += String.Format("Gravity: {0}\n [F] {1:000.00}\n [L] {2:000.00}\n [U] {3:000.00}\n",
+        //             mLocalGravity.Length(),
+        //             mLocalGravity.Y,
+        //             mLocalGravity.Z,
+        //             mLocalGravity.X);
 
         return true;
     }
