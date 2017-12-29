@@ -88,6 +88,7 @@ public class CGI_ThrustManager
     private string mStatisticsString = "";
 
     private Vector3D mLocalVelocity = Vector3D.Zero;
+    private Vector3D mLocalGravity = Vector3D.Zero;
     private Vector3D mLocalBreakDistance = Vector3D.Zero;
 
     public CGI_ThrustManager()
@@ -140,6 +141,22 @@ public class CGI_ThrustManager
     {
         mDirectionStatsList = new List<CGI_ThrusterDirectionStats>();
         double aPhysicalMass = pController.CalculateShipMass().PhysicalMass;
+        //Vector3D aGravity = aCurrentController.GetNaturalGravity();
+
+        // /// this is the local gravity acceleration
+        // Vector3D aUp = pController.WorldMatrix.Up;
+        // Vector3D aLeft = pController.WorldMatrix.Left;
+        // Vector3D aForward = pController.WorldMatrix.Forward;
+        //
+        // //double aGravityForce = aGravity.Length() * aMass.PhysicalMass;
+        //
+        //
+        // Vector3D aLocalGravity = Vector3D.Zero;
+        // aLocalGravity.X = aGravity.Dot(aUp);        // UP
+        // aLocalGravity.Y = aGravity.Dot(aForward);   // FORWARD
+        // aLocalGravity.Z = aGravity.Dot(aLeft);      // LEFT
+        // ///
+
 
         foreach(KeyValuePair<Base6Directions.Direction,List<IMyThrust>> aPair in myThrustDirections)
         {
@@ -205,9 +222,20 @@ public class CGI_ThrustManager
         Vector3D aLeft = pController.WorldMatrix.Left;
         Vector3D aForward = pController.WorldMatrix.Forward;
 
+
         mLocalVelocity.X = aLinearVelocity.Dot(aUp);        // UP
         mLocalVelocity.Y = aLinearVelocity.Dot(aForward);   // FORWARD
         mLocalVelocity.Z = aLinearVelocity.Dot(aLeft);      // LEFT
+
+
+        /// this is the local gravity acceleration
+
+        //double aGravityForce = aGravity.Length() * aMass.PhysicalMass;
+        Vector3D aGravity = pController.GetNaturalGravity();
+        mLocalGravity.X = aGravity.Dot(aUp);        // UP
+        mLocalGravity.Y = aGravity.Dot(aForward);   // FORWARD
+        mLocalGravity.Z = aGravity.Dot(aLeft);      // LEFT
+
 
         // TODO: holly mother of programming fix this ASAP this is horrible style and very bad design
         // well - it has to do for now to see if it works
@@ -323,12 +351,17 @@ public class CGI_ThrustManager
          //           mLocalVelocity.X,
           //          mLocalBreakDistance.X);
 
-
-   mStatisticsString += String.Format("Speed: {0}\n [F] {1:000.00}\n [L] {2:000.00}\n [U] {3:000.00}\n", 
-                    mLocalVelocity.Length(), 
-                    mLocalBreakDistance.Y, 
-                    mLocalBreakDistance.Z, 
+        mStatisticsString += String.Format("Speed: {0}\n [F] {1:000.00}\n [L] {2:000.00}\n [U] {3:000.00}\n\n", 
+                    mLocalVelocity.Length(),
+                    mLocalBreakDistance.Y,
+                    mLocalBreakDistance.Z,
                     mLocalBreakDistance.X);
+        mStatisticsString += String.Format("Gravity: {0}\n [F] {1:000.00}\n [L] {2:000.00}\n [U] {3:000.00}\n",
+                    mLocalGravity.Length(),
+                    mLocalGravity.Y,
+                    mLocalGravity.Z,
+                    mLocalGravity.X);
+
         return true;
     }
 
