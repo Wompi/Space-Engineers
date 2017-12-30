@@ -18,7 +18,7 @@ public CGI_ThrustManager myThrustManager = new CGI_ThrustManager();
 public List<IMyShipController> myShipControllers = new List<IMyShipController>();
 public List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 
-public bool COMPENSATE_GRAVITY = true;
+public const bool COMPENSATE_GRAVITY = true;
 
 public Program()
 {
@@ -143,19 +143,19 @@ public class CGI_ThrustManager
     {
         mDirectionStatsList = new List<CGI_ThrusterDirectionStats>();
         double aPhysicalMass = pController.CalculateShipMass().PhysicalMass;
-        //Vector3D aGravity = aCurrentController.GetNaturalGravity();
+      
 
+        Dictionary<Base6Directions.Direction,double> aLocalGravity = new Dictionary<Base6Directions.Direction,double>(); 
+            
         if (COMPENSATE_GRAVITY)
         {
             /// this is the local gravity acceleration
+           Vector3D aGravity = pController.GetNaturalGravity();
+
             Vector3D aUp = pController.WorldMatrix.Up;
             Vector3D aLeft = pController.WorldMatrix.Left;
             Vector3D aForward = pController.WorldMatrix.Forward;
 
-            //double aGravityForce = aGravity.Length() * aMass.PhysicalMass;
-
-            Vector3D aLocalGravity = Vector3D.Zero;
-            Dictionary<Base6Directions.Direction,double> aLocalGravity = new Dictionary<<Base6Directions.Direction,double>();
             aLocalGravity[Base6Directions.Direction.Forward] = aGravity.Dot(aForward);   // FORWARD;
             aLocalGravity[Base6Directions.Direction.Backward] = -aLocalGravity[Base6Directions.Direction.Forward];
 
@@ -190,9 +190,9 @@ public class CGI_ThrustManager
             if (COMPENSATE_GRAVITY)
             {
                 double aGravityDirectionForce = aLocalGravity[aKey] * aPhysicalMass;
-                aDirectionStats.mDirectionForceCurrent += aGravityDirectionForce ;
-                aDirectionStats.mDirectionForceEffective += aGravityDirectionForce;
-                aDirectionStats.mDirectionForceMax += aGravityDirectionForce;
+                aDirectionStats.mDirectionForceCurrent -= aGravityDirectionForce ;
+                aDirectionStats.mDirectionForceEffective -= aGravityDirectionForce;
+                aDirectionStats.mDirectionForceMax -= aGravityDirectionForce;
             }
 
             aDirectionStats.mAccelerationMax = aDirectionStats.mDirectionForceMax / aPhysicalMass;
