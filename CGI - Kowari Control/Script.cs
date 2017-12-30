@@ -8,7 +8,8 @@
  *                          - tool will be switched of if jumping out of the cockpit
  *                          - reactor switched of when connected to another grid
  *              v0.12   - only grab the blocks on the grid - nice adjustment to the 'GetFirstBlockOfType' generic
- *
+ *              v0.13   - lets see if we can make a better status display - batteries / power and all the good stuff
+ *                         around the landing gear and connector
  *
  */
 
@@ -21,8 +22,6 @@ IMyRemoteControl myRemoteControl = null;
 IMyGasGenerator myGasGenerator = null;
 
 IMyShipToolBase myTool = null;
-//IMyShipWelder myWelder = null;
-//IMyShipGrinder myGrinder = null;
 IMyRadioAntenna myAntenna = null;
 
 List<IMyBatteryBlock> myBatteries = new List<IMyBatteryBlock>();
@@ -30,9 +29,14 @@ List<IMySolarPanel> mySolarPanels = new List<IMySolarPanel>();
 List<IMyTextPanel> myTextPanels = new List<IMyTextPanel>();
 
 
-static double ANTENNA_ENERGY_FACTOR = 0.004;    // NOTE: could be changed in future versions for now the energy input is linear (4W)
+const double ANTENNA_ENERGY_FACTOR = 0.004;    // NOTE: could be changed in future versions for now the energy input is linear (4W)
 
-int mTick = 0;
+const char C_RED = '\uE200';
+const char C_GREEN = '\uE120';
+const char C_BLUE = '\uE104';
+const char C_YELLOW = '\uE220';
+const char C_WHITE = '\uE2FF';
+const char C_BLACK = '\uE100';
 
 public void GetFirstBlockOfType<T>( ref T pBlock, Func<T, bool> pCheck = null ) where T : class
 {
@@ -54,11 +58,8 @@ public Program()
     GetFirstBlockOfType(ref myCockpit, aCheck);
     GetFirstBlockOfType(ref myRemoteControl, aCheck);
     GetFirstBlockOfType(ref myGasGenerator, aCheck);
-    //GetFirstBlockOfType(ref myWelder, aCheck);
-    //GetFirstBlockOfType(ref myGrinder, aCheck);
     GetFirstBlockOfType(ref myTool, aCheck);
     GetFirstBlockOfType(ref myAntenna, aCheck);
-
 
     GridTerminalSystem.GetBlocksOfType(myBatteries, aCheck);
     GridTerminalSystem.GetBlocksOfType(mySolarPanels, aCheck);
@@ -77,149 +78,112 @@ public void Save() {}
 
 public void Main(string argument, UpdateType updateSource)
 {
-    mTick++;
-
-
-    Echo(myShipConnector.Status.ToString());
-    Echo(myLandingGear.LockMode.ToString());
-
-
-    Echo("Batteries: "+myBatteries.Count);
-    foreach ( IMyBatteryBlock aBattery in myBatteries)
+    string aOut = "";
+    // Branch out the functionallity if we are connected or if we are in space
+    if (myShipConnector.Status == MyShipConnectorStatus.Connected)
     {
-        string isRecharge = aBattery.OnlyRecharge ? "Y" : "N";
-        double aBatteryInput = aBattery.CurrentInput;
-        double aBatteryOutput = aBattery.CurrentOutput;
-        double aBatteryStore = aBattery.CurrentStoredPower;
-
-        double aCurrentUse = aBatteryOutput - aBatteryInput;
-        double aBatteryTime = -1;
-        if (aCurrentUse > 0)
-        {
-            aBatteryTime = aBatteryStore / aCurrentUse;
-        }
-
-
-        Echo(String.Format("   IN: {0:0.000} - Store: {1:0.000} Recharge: {2}",aBatteryInput,aBatteryStore, isRecharge));
-        Echo(String.Format("   Livetime: {0:0.000}",aBatteryTime));
+        aOut += HandleBatteries(true);
+        aOut += HandleReactor(true);
+        aOut += HandleTool(true);
+        aOut += HandleSolarpanels(true);
+        aOut += HandleAntenna(true);
     }
-    bool aBatteryState = HandleBatteries();
-    Echo(aBatteryState ? "Connected: batteries recharge" : "Not connected: batteries work");
-
-
-    Echo("Reactor: "+myReactor.CurrentOutput);
-    bool aReactorState = HandleReactor();
-    Echo(aReactorState ? "Connected: reactor offline" : "Not Connected: reactor online");
-
-    double aSolarOutput = 0;
-    foreach ( IMySolarPanel aPanel in mySolarPanels)
+    else
     {
-        aSolarOutput += aPanel.CurrentOutput;
+        aOut += HandleBatteries(false);
+        aOut += HandleReactor(false);
+        aOut += HandleTool(false);
+        aOut += HandleSolarpanels(false);
+        aOut += HandleAntenna(false);
     }
 
-    Echo("Solar: "+mySolarPanels.Count + " - "+aSolarOutput.ToString("0.000"));
+    //Debug();
 
-
-    HandleTool();
-
-
-
-
-
-    double aRadius =  myAntenna.Radius;
-    Echo("Antenna: "+aRadius.ToString("0.00")+ " Input: "+(aRadius * ANTENNA_ENERGY_FACTOR).ToString("0.000"));
-
-
-    string aIndicator = myCockpit.MoveIndicator.ToString("00.00");
-
-
-
-    string aOutput = "\uE120";
-    MyShipMass aMass = myRemoteControl.CalculateShipMass();
-    Vector3D aGravity = myRemoteControl.GetNaturalGravity();
-    aOutput  = aOutput + String.Format("{0}: \n {1} / {2} \n Gravity: {3} \n\n",
-                myRemoteControl.CustomName,aMass.BaseMass,aMass.TotalMass,aGravity.Length().ToString("0.000"));
-
-    aOutput = aOutput + aIndicator + "\n";
-
-
-    Vector3D aCenterOfMass = myCockpit.CenterOfMass;
-    Vector3D aVolumeCenter  = Me.CubeGrid.WorldVolume.Center;
-    double aVolumeRadius = Me.CubeGrid.WorldVolume.Radius;
-    double aSize = Me.CubeGrid.GridSize;
-
-
-    double  aDistance = Vector3D.Distance(aVolumeCenter,aCenterOfMass);
-
-    aOutput += String.Format("Grid Volume:\n Center: {0}\n Radius: {1}\n Size: {2}\n Blocks: {3}\n",
-                aDistance,
-                aVolumeRadius,
-                aSize,
-                aVolumeRadius/aSize);
-
-     Me.CustomData = String.Format("GPS: Ship Center:{0}:{1}:{2}:",aVolumeCenter.X,aVolumeCenter.Y,aVolumeCenter.Z);
-
-    Vector3D aLinearVelocity = myCockpit.GetShipVelocities().LinearVelocity;
-    double aSpeed = aLinearVelocity.Length();
-
-    Vector3D aUp = myCockpit.WorldMatrix.Up;
-    Vector3D aLeft = myCockpit.WorldMatrix.Left;
-    Vector3D aForward = myCockpit.WorldMatrix.Forward;
-
-    double aUpVelo = aLinearVelocity.Dot(aUp);
-    double aForwardVelo = aLinearVelocity.Dot(aForward);
-    double aLeftVelo = aLinearVelocity.Dot(aLeft);
-
-
-   // double aBreakDistanceUp = -aSpeed / (2 * )
-
-
-    aOutput += String.Format("Speed: {0}\n [F] Speed: {1}\n [L] Speed: {2}\n [U] Speed: {3}",
-                aSpeed,
-                aForwardVelo,
-                aLeftVelo,
-                aUpVelo);
-
-
-    myTextPanels[0].WritePublicText(aOutput,false);
+    myLCDPanels[0].WritePublicText(aOut,false);
 }
 
 /**
-  *  Note: for now set the batteries to recharge when we are connected
+  *  NOTE: for now set the batteries to recharge when we are connected
   *
   *  TODO: make this a bit more robust and enhance the functionality - should be dependent on energy / landing gear and so on
   */
-public bool HandleBatteries()
+public string HandleBatteries(bool isConnected)
 {
-    bool aResult = false;
+    string aResult = "";
 
-    bool isRecharge = false;
-    if (myShipConnector.Status == MyShipConnectorStatus.Connected)
+    bool isRecharge = isConnected;
+
+    string aStatusString = "";
+
+    double aBatteryInput = 0;
+    double aBatteryOutput = 0;
+    double aBatteryStore = 0;
+    double aBatteryMaxStore = 0;
+
+    foreach( IMyBatteryBlock aBattery in myBatteries)
     {
-        isRecharge = true;
-        aResult = true;
+        if (!aBattery.IsFunctional || !aBattery.Enabled)
+        {
+            aStatusString += C_RED;
+            continue;
+        }
+
+        aBattery.OnlyRecharge = isRecharge;
+        aStatusString += isRecharge ? C_YELLOW : C_GREEN;
+
+        aBatteryInput += aBattery.CurrentInput;
+        aBatteryOutput += aBattery.CurrentOutput;
+        aBatteryStore += aBattery.CurrentStoredPower;
+        aBatteryMaxStore += aBattery.MaxStoredPower;
     }
 
-     foreach( IMyBatteryBlock aBattery in myBatteries)
-     {
-        aBattery.OnlyRecharge = isRecharge;
-     }
+    double aCurrentUse = aBatteryOutput - aBatteryInput;
 
-    return aResult;
+    if (aCurrentUse > 0)
+    {
+        TimeSpan aSpan = new TimeSpan((long)(aBatteryStore / aCurrentUse * 60 * 60 * 10000000));
+        aResult += aStatusString + String.Format(" <{0}{1}{2}> ",C_RED,aSpan.ToString("hh\\:mm\\:ss"),C_RED);
+    }
+    else if (aCurrentUse < 0)
+    {
+        TimeSpan aSpan = new TimeSpan((long)((aBatteryStore - aBatteryMaxStore) / aCurrentUse * 60 * 60 * 10000000));
+        aResult += aStatusString + String.Format(" >{0}{1}{2}< ",C_GREEN,aSpan.ToString("hh\\:mm\\:ss"),C_GREEN);
+    }
+    else
+    {
+        aResult += aStatusString + "  --:--:--  ";
+    }
+
+    //Echo(String.Format("   IN: {0:0.000} - Store: {1:0.000} Recharge: {2}",aBatteryInput,aBatteryStore, isRecharge));
+    //Echo(String.Format("   Livetime: {0:0.000}",aBatteryTime));
+
+    return aResult + "\n";
 }
 
-public bool HandleReactor()
+/**
+ *   NOTE: currently this is just a on/off switch when connected or not.
+ *
+ *   TODO:  - think about more advanced stuff - like switching the reactor off in dependence of the battery state
+ *          - also landing gear handling
+ *
+ */
+public string HandleReactor(bool pIsConnected)
 {
-    bool aResult = false;
+    string aResult = "";
 
     string aAction = "OnOff_On";
-    if (myShipConnector.Status == MyShipConnectorStatus.Connected)
+    if (pIsConnected)
     {
         aAction = "OnOff_Off";
         aResult = true;
     }
-
     myReactor.ApplyAction(aAction);
+    string aStatusString = myReactor.Enabled ? C_GREEN + " (on)" : C_RED + " (off)";
+
+    aResult += String.Format("Reactor: {0} - {1:0.000} kw\n",
+                aStatusString
+                myReactor.CurrentOutput);
+
     return aResult;
 }
 
@@ -233,9 +197,10 @@ public bool HandleReactor()
   *
   *     TODO: handle the return result
   */
-public bool HandleTool()
+public string HandleTool(bool pIsConnected)
 {
-    bool aResult = false;
+    string aResult = "";
+    char aStatus = C_RED;
 
     if (myTool == null || !myTool.IsFunctional)
     {
@@ -251,7 +216,56 @@ public bool HandleTool()
                 myTool.ApplyAction("OnOff_Off");
             }
         }
-        aResult = true;
+        else
+        {
+            aStats = myTool.Enabled ? C_GREEN : C_YELLOW;
+        }
     }
+    aResult += String.Format("Tool: {0} {1}\n",aStatus,myTool.CustomName);
+    return aResult;
+}
+
+public string HandleSolarpanels(bool pIsConnected)
+{
+    string aResult = "";
+    double aSolarOutput = 0;
+    foreach ( IMySolarPanel aPanel in mySolarPanels)
+    {
+        aSolarOutput += aPanel.CurrentOutput;
+    }
+
+    aResult += String.Format("Solar: {0} - {1:0.000} kw\n",
+                    mySolarPanels.Count,
+                    aSolarOutput);
+    return aResult;
+}
+
+public string HandleAntenna(bool pIsConnected)
+{
+    string aResult = "";
+
+    char aStatus = C_RED;
+    // When the ship is actively controlled the antenna can be switched off
+    if (myCockpit.IsUnderControl)
+    {
+        pIsConnected = true;
+        aStatus = C_YELLOW;
+    }
+
+    double aRadius =  myAntenna.Radius;
+
+    if (pIsConnected)
+    {
+        myAntenna.Enabled = false;
+    }
+    else
+    {
+        myAntenna.Enabled = true;
+        aStatus = C_GREEN;
+    }
+    aResult += String.Format("Antenna: {0} {1} m  {2} kw\n",
+                aStatus,
+                aRadius,
+                (aRadius * ANTENNA_ENERGY_FACTOR));
     return aResult;
 }
