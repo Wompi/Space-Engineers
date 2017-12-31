@@ -13,7 +13,7 @@ CGI_GyroManager myGyroManager = new CGI_GyroManager();
 IMyShipController myCockpit = null;
 List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 
-public Program()
+public Program() 
 {
     Runtime.UpdateFrequency = UpdateFrequency.Update10;
     List<IMyShipController> aList = new List<IMyShipController>();
@@ -24,15 +24,15 @@ public Program()
 
     myGyroManager.LoadEntities(GridTerminalSystem,myCockpit);
 
-}
-
-public void Save() {}
+} 
+ 
+public void Save() {} 
 
 
 
 public string mArgument = "";
-
-public void Main(string argument, UpdateType updateSource)
+ 
+public void Main(string argument, UpdateType updateSource) 
 {
     string aOut = "";
 
@@ -50,15 +50,15 @@ public void Main(string argument, UpdateType updateSource)
 
     aOut += myGyroManager.ProcessGravityAlignment();
 
-    if (myTextPanels.Count > 0)
+    if (myLCDPanels.Count > 0)
     {
-    myTextPanels[0].WritePublicText(aOut,false);
+        myLCDPanels[3].WritePublicText(aOut,false);
     }
     else
     {
         Echo(aOut);
     }
-}
+} 
 
 
 public class CGI_GyroManager
@@ -84,7 +84,7 @@ public class CGI_GyroManager
     public string ProcessGravityAlignment()
     {
         string aResult = "";
-        Vector3D aWorldGravity = mReference.GetNaturalGravity();
+        Vector3D aWorldGravity = -mReference.GetNaturalGravity();
 
         Vector3D aUp = mReference.WorldMatrix.Up;
         Vector3D aLeft = mReference.WorldMatrix.Left;
@@ -94,7 +94,7 @@ public class CGI_GyroManager
 
         aLocalGravity.X = aWorldGravity.Dot(aUp);
         aLocalGravity.Y = aWorldGravity.Dot(aLeft);
-        aLocalGravity.Z = aWorldGravity.Dot(aFoward);
+        aLocalGravity.Z = aWorldGravity.Dot(aForward);
 
         Vector3D aRadianAngleVector = Vector3D.Zero;
         aRadianAngleVector.X = Math.Acos(aLocalGravity.X / (aWorldGravity.Length() * aUp.Length())); // YAW (not needed)
@@ -104,9 +104,9 @@ public class CGI_GyroManager
         Vector3D aDegreeAngleVector = aRadianAngleVector * 180.00f / Math.PI;
 
         aResult += String.Format("Angle: Gravity -> Ship\n Pitch: {0:00.00}\n Roll: {1:00.00}\n Yaw: {2:00.00}\n",
-                        aRadianAngleVector.Z,
-                        aLocalGravity.Y,
-                        aLocalGravity.Z);
+                        aDegreeAngleVector.Z,
+                        aDegreeAngleVector.Y,
+                        aDegreeAngleVector.X);
         return aResult;
     }
 
