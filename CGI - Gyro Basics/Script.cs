@@ -13,7 +13,7 @@ CGI_GyroManager myGyroManager = new CGI_GyroManager();
 IMyShipController myCockpit = null;
 List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 
-public Program() 
+public Program()
 {
     Runtime.UpdateFrequency = UpdateFrequency.Update10;
     List<IMyShipController> aList = new List<IMyShipController>();
@@ -24,15 +24,15 @@ public Program()
 
     myGyroManager.LoadEntities(GridTerminalSystem,myCockpit);
 
-} 
- 
-public void Save() {} 
+}
+
+public void Save() {}
 
 
 
 public string mArgument = "";
- 
-public void Main(string argument, UpdateType updateSource) 
+
+public void Main(string argument, UpdateType updateSource)
 {
     string aOut = "";
 
@@ -58,7 +58,7 @@ public void Main(string argument, UpdateType updateSource)
     {
         Echo(aOut);
     }
-} 
+}
 
 
 public class CGI_GyroManager
@@ -163,13 +163,17 @@ public class CGI_GyroManager
         aOut = aOut + String.Format("Gyros: {0}\n\n",mGyros.Count);
 
         Vector3D aForwardReference = mReference.WorldMatrix.Forward;
+        Vector3D aLeftReference = mReference.WorldMatrix.Left;
+        Vector3D aUpReference = mReference.WorldMatrix.Up;
 
         foreach( IMyGyro aGyro in mGyros)
         {
                 string aAlign = "not aligned";
                 Vector3D aGyroForward = aGyro.WorldMatrix.Forward;
+                Vector3D aGyroLeft = aGyro.WorldMatrix.Left;
+                Vector3D aGyroUp = aGyro.WorldMatrix.Up;
 
-                if (aForwardReference.Equals(aGyroForward))
+                if (aForwardReference.Equals(aGyroForward) && aLeftReference.Equals(aGyroLeft) && aUpReference.Equals(aGyroUp))
                 {
                         aAlign = "aligned";
                 }
