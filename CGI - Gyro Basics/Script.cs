@@ -101,7 +101,7 @@ public class CGI_GyroManager
         aRadianAngleVector.Y = Math.Acos(aLocalGravity.Y / (aWorldGravity.Length() * aLeft.Length())); // ROLL
         aRadianAngleVector.Z = Math.Acos(aLocalGravity.Z / (aWorldGravity.Length() * aForward.Length())); // PITCH
 
-        Vector3D aDegreeAngleVector = aRadianAngleVector * 180.00f / Math.PI;
+        Vector3D aDegreeAngleVector = (aRadianAngleVector - Math.PI/2.0f) * 180.00f / Math.PI;
 
         aResult += String.Format("Angle: Gravity -> Ship\n Pitch: {0:00.00}\n Roll: {1:00.00}\n Yaw: {2:00.00}\n",
                         aDegreeAngleVector.Z,
