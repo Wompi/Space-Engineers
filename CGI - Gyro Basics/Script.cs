@@ -4,6 +4,7 @@
  *
  *      Version:
  *              v0.10 - just the basic functions for a gyro block - also maybe a gyro test routine to check the angle acceleration
+ *              v0.20 - lets see if we can make out way to align with the gravity vector
  *
  */
 
