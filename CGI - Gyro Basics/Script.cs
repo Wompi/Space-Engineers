@@ -13,6 +13,9 @@ CGI_GyroManager myGyroManager = new CGI_GyroManager();
 IMyShipController myCockpit = null;
 List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 
+
+int mTick = 0;
+
 public Program()
 {
     Runtime.UpdateFrequency = UpdateFrequency.Update10;
@@ -22,7 +25,7 @@ public Program()
 
     GridTerminalSystem.GetBlocksOfType(myLCDPanels, b => b.CubeGrid == Me.CubeGrid);
 
-    myGyroManager.LoadEntities(GridTerminalSystem,myCockpit);
+   
 
 }
 
@@ -34,14 +37,18 @@ public string mArgument = "";
 
 public void Main(string argument, UpdateType updateSource)
 {
-    string aOut = "";
+    string aOut = String.Format("Tick: {0}\n",mTick++);
+
+
+    myGyroManager.LoadEntities(GridTerminalSystem,myCockpit);
+
 
     if (argument.Equals("GyroCheck"))
     {
         mArgument = argument;
     }
 
-    aOut = myGyroManager.Statistics();
+    aOut += myGyroManager.Statistics();
 
     if (mArgument.Equals("GyroCheck"))
     {
@@ -52,7 +59,7 @@ public void Main(string argument, UpdateType updateSource)
 
     if (myLCDPanels.Count > 0)
     {
-        myLCDPanels[3].WritePublicText(aOut,false);
+        myLCDPanels[6].WritePublicText(aOut,false);
     }
     else
     {
@@ -69,9 +76,7 @@ public class CGI_GyroManager
     private bool isStart = true;
     private Vector3D aCheckStartPosition = Vector3D.Zero;
     private float POWER_CHECK_DELTA = 0.001f;
-
-
-
+    private float GYRO_DELTA =  (float) (1 * Math.PI / 180f); 
 
     public string LoadEntities(IMyGridTerminalSystem pGTS, IMyShipController pReference)
     {
@@ -98,15 +103,36 @@ public class CGI_GyroManager
 
         Vector3D aRadianAngleVector = Vector3D.Zero;
         aRadianAngleVector.X = Math.Acos(aLocalGravity.X / (aWorldGravity.Length() * aUp.Length())); // YAW (not needed)
-        aRadianAngleVector.Y = Math.Acos(aLocalGravity.Y / (aWorldGravity.Length() * aLeft.Length())); // ROLL
-        aRadianAngleVector.Z = Math.Acos(aLocalGravity.Z / (aWorldGravity.Length() * aForward.Length())); // PITCH
+        aRadianAngleVector.Y = Math.Acos(aLocalGravity.Y / (aWorldGravity.Length() * aLeft.Length())) - Math.PI/2f; // ROLL
+        aRadianAngleVector.Z = Math.Acos(aLocalGravity.Z / (aWorldGravity.Length() * aForward.Length())) - Math.PI/2f; // PITCH
 
-        Vector3D aDegreeAngleVector = (aRadianAngleVector - Math.PI/2.0f) * 180.00f / Math.PI;
+        Vector3D aDegreeAngleVector = (aRadianAngleVector) * 180.00f / Math.PI;
 
-        aResult += String.Format("Angle: Gravity -> Ship\n Pitch: {0:00.00}\n Roll: {1:00.00}\n Yaw: {2:00.00}\n",
+        aResult += String.Format("Angle: Gravity -> Ship\n Pitch: {0:00.000}\n Roll: {1:00.000}\n Yaw: {2:00.000}\n",
                         aDegreeAngleVector.Z,
                         aDegreeAngleVector.Y,
                         aDegreeAngleVector.X);
+
+       foreach (IMyGyro aGyro in mGyros)
+       {
+             if (aDegreeAngleVector.Z != 0)
+             {
+                    aGyro.Pitch = (float) -aRadianAngleVector.Z;
+             }
+             if (aDegreeAngleVector.Y != 0) 
+             { 
+                    aGyro.Roll = (float) aRadianAngleVector.Y; 
+             }
+       }
+
+
+
+      aResult += String.Format("Gyro: \n Pitch: {0:00.000}\n Roll: {1:00.000}\n Yaw: {2:00.000}\n", 
+                        mGyros[0].Pitch * 180 / Math.PI, 
+                        mGyros[0].Roll * 180 / Math.PI, 
+                        mGyros[0].Yaw * 180 / Math.PI);
+
+
         return aResult;
     }
 
