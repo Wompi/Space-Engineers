@@ -85,8 +85,6 @@ public void Main(string argument, UpdateType updateSource)
     // Branch out the functionallity if we are connected or if we are in space
     bool isConnected = IsShipConnected();
 
-    HandleTerminalVisibility(isConnected);
-
     aOut += HandleBatteries(isConnected);
     aOut += HandleReactor(isConnected);
     aOut += HandleTool(isConnected);
@@ -96,56 +94,6 @@ public void Main(string argument, UpdateType updateSource)
     //Debug();
 
     myLCDPanels[0].WritePublicText(aOut,false);
-}
-
-/**
- *  NOTE: I don't like fiddling with the cluttered terminal - maybe this can help a bit, by only showing the relvant
- *          entities when I need it
- *
- */
-public void HandleTerminalVisibility(bool isConnected)
-{
-    bool aIsEntityVisible = false;
-    IMyInventory aInventory = null;
-
-    foreach(IMyCargoContainer aContainer in myContainers)
-    {
-        if (isConnected || (!aIsEntityVisible && (GetInventoryFillPercentage(aContainer) < 0.90)))
-        {
-            aIsEntityVisible = true;
-            aContainer.ShowInTerminal = true;
-        }
-        else
-        {
-            aContainer.ShowInTerminal = false;
-        }
-    }
-
-    foreach(IMyShipConnector aConnector in myShipConnectors)
-    {
-        if (isConnected || (!aIsEntityVisible && (GetInventoryFillPercentage(aConnector) < 0.90)))
-        {
-            aIsEntityVisible = true;
-            aConnector.ShowInTerminal = true;
-        }
-        else
-        {
-            aConnector.ShowInTerminal = false;
-        }
-    }
-
-
-    // TODO: adjust the visibility on the amount of uranium ingots in the cargo or for the oxygen generator the amount
-    //       of ice
-    myReator.ShowInTerminal = isConnected;
-    myGasGenerator.ShowInTerminal = isConnected;
-
-    //if (isConnected) myReactor.ShowInTerminal = true;
-    //else
-    {
-        //IMyInventory aInventory = myReactor.GetInventory(0);
-        //if (!aInventory.ContainItems(RECTOR_DEFAULT_LOAD,))
-    }
 }
 
 /**
