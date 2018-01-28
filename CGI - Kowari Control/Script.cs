@@ -1,4 +1,4 @@
-    ﻿/**
+﻿    ﻿/**
  *    Author: Casegard
  *    Program: CGI - Kowari Control
  *
@@ -27,7 +27,7 @@ IMyRadioAntenna myAntenna = null;
 List<IMyShipConnector> myShipConnectors = new List<IMyShipConnector>();
 List<IMyBatteryBlock> myBatteries = new List<IMyBatteryBlock>();
 List<IMySolarPanel> mySolarPanels = new List<IMySolarPanel>();
-List<IMyTextPanel> myTextPanels = new List<IMyTextPanel>();
+List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 
 
 const double ANTENNA_ENERGY_FACTOR = 0.004;    // NOTE: could be changed in future versions for now the energy input is linear (4W)
@@ -63,11 +63,11 @@ public Program()
 
     GridTerminalSystem.GetBlocksOfType(myBatteries, aCheck);
     GridTerminalSystem.GetBlocksOfType(mySolarPanels, aCheck);
-    GridTerminalSystem.GetBlocksOfType(myTextPanels, aCheck);
+    GridTerminalSystem.GetBlocksOfType(myLCDPanels, aCheck);
     GridTerminalSystem.GetBlocksOfType(myShipConnectors, aCheck);
 
 
-    foreach( IMyTextPanel aPanel in myTextPanels)
+    foreach( IMyTextPanel aPanel in myLCDPanels)
     {
         aPanel.FontSize = 1f;
         aPanel.Font = "Monospace";
@@ -194,13 +194,12 @@ public string HandleReactor(bool pIsConnected)
     if (pIsConnected)
     {
         aAction = "OnOff_Off";
-        aResult = true;
     }
     myReactor.ApplyAction(aAction);
     string aStatusString = myReactor.Enabled ? C_GREEN + " (on)" : C_RED + " (off)";
 
     aResult += String.Format("Reactor: {0} - {1:0.000} kw\n",
-                aStatusString
+                aStatusString,
                 myReactor.CurrentOutput);
 
     return aResult;
@@ -237,7 +236,7 @@ public string HandleTool(bool pIsConnected)
         }
         else
         {
-            aStats = myTool.Enabled ? C_GREEN : C_YELLOW;
+            aStatus = myTool.Enabled ? C_GREEN : C_YELLOW;
         }
     }
     aResult += String.Format("Tool: {0} {1}\n",aStatus,myTool.CustomName);
