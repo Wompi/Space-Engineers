@@ -25,11 +25,13 @@ IMyShipToolBase myTool = null;
 IMyRadioAntenna myAntenna = null;
 
 List<IMyShipConnector> myShipConnectors = new List<IMyShipConnector>();
+List<IMyCargoContainer> myContainers = new List<IMyCargoContainer>();
 List<IMyBatteryBlock> myBatteries = new List<IMyBatteryBlock>();
 List<IMySolarPanel> mySolarPanels = new List<IMySolarPanel>();
 List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 
 
+const float RECTOR_DEFAULT_LOAD = 50;
 const double ANTENNA_ENERGY_FACTOR = 0.004;    // NOTE: could be changed in future versions for now the energy input is linear (4W)
 
 const char C_RED = '\uE200';
@@ -65,7 +67,7 @@ public Program()
     GridTerminalSystem.GetBlocksOfType(mySolarPanels, aCheck);
     GridTerminalSystem.GetBlocksOfType(myLCDPanels, aCheck);
     GridTerminalSystem.GetBlocksOfType(myShipConnectors, aCheck);
-
+    GridTerminalSystem.GetBlocksOfType(myContainers, aCheck);
 
     foreach( IMyTextPanel aPanel in myLCDPanels)
     {
@@ -81,26 +83,69 @@ public void Main(string argument, UpdateType updateSource)
 {
     string aOut = "";
     // Branch out the functionallity if we are connected or if we are in space
-    if (IsShipConnected())
-    {
-        aOut += HandleBatteries(true);
-        aOut += HandleReactor(true);
-        aOut += HandleTool(true);
-        aOut += HandleSolarpanels(true);
-        aOut += HandleAntenna(true);
-    }
-    else
-    {
-        aOut += HandleBatteries(false);
-        aOut += HandleReactor(false);
-        aOut += HandleTool(false);
-        aOut += HandleSolarpanels(false);
-        aOut += HandleAntenna(false);
-    }
+    bool isConnected = IsShipConnected();
+
+    HandleTerminalVisibility(isConnected);
+
+    aOut += HandleBatteries(isConnected);
+    aOut += HandleReactor(isConnected);
+    aOut += HandleTool(isConnected);
+    aOut += HandleSolarpanels(isConnected);
+    aOut += HandleAntenna(isConnected);
 
     //Debug();
 
     myLCDPanels[0].WritePublicText(aOut,false);
+}
+
+/**
+ *  NOTE: I don't like fiddling with the cluttered terminal - maybe this can help a bit, by only showing the relvant
+ *          entities when I need it
+ *
+ */
+public void HandleTerminalVisibility(bool isConnected)
+{
+    bool aIsEntityVisible = false;
+    IMyInventory aInventory = null;
+
+    foreach(IMyCargoContainer aContainer in myContainers)
+    {
+        if (isConnected || (!aIsEntityVisible && (GetInventoryFillPercentage(aContainer) < 0.90)))
+        {
+            aIsEntityVisible = true;
+            aContainer.ShowInTerminal = true;
+        }
+        else
+        {
+            aContainer.ShowInTerminal = false;
+        }
+    }
+
+    foreach(IMyShipConnector aConnector in myShipConnectors)
+    {
+        if (isConnected || (!aIsEntityVisible && (GetInventoryFillPercentage(aConnector) < 0.90)))
+        {
+            aIsEntityVisible = true;
+            aConnector.ShowInTerminal = true;
+        }
+        else
+        {
+            aConnector.ShowInTerminal = false;
+        }
+    }
+
+
+    // TODO: adjust the visibility on the amount of uranium ingots in the cargo or for the oxygen generator the amount
+    //       of ice
+    myReator.ShowInTerminal = isConnected;
+    myGasGenerator.ShowInTerminal = isConnected;
+
+    //if (isConnected) myReactor.ShowInTerminal = true;
+    //else
+    {
+        //IMyInventory aInventory = myReactor.GetInventory(0);
+        //if (!aInventory.ContainItems(RECTOR_DEFAULT_LOAD,))
+    }
 }
 
 /**
@@ -285,5 +330,22 @@ public string HandleAntenna(bool pIsConnected)
                 aStatus,
                 aRadius,
                 (aRadius * ANTENNA_ENERGY_FACTOR));
+    return aResult;
+}
+
+
+/**
+ *  NOTE: Helper function to get the fillstatus for a terminalblock that has an aInventory
+ *
+ *  TODO: for now only the first inventory is used - beware that blocks can have multiple inventories
+ */
+public float GetInventoryFillPercentage(IMyTerminalBlock pTerminalBlock)
+{
+    float aResult = -1;
+    if (pTerminalBlock.HasInventory)
+    {
+        IMyInventory aInventory = pTerminalBlock.GetInventory(0);
+        aResult = (float) aInventory.CurrentVolume / (float) aInventory.MaxVolume;
+    }
     return aResult;
 }
