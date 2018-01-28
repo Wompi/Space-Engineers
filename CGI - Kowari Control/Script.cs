@@ -10,10 +10,10 @@
  *              v0.12   - only grab the blocks on the grid - nice adjustment to the 'GetFirstBlockOfType' generic
  *              v0.13   - lets see if we can make a better status display - batteries / power and all the good stuff
  *                         around the landing gear and connector
+ *              v0.14   - ship connectors can be a couple more than just one - so it needs a list approach
  *
  */
 
-IMyShipConnector myShipConnector = null;
 IMyLandingGear myLandingGear = null;
 IMyReactor myReactor = null;
 IMyGyro myGyro = null;
@@ -24,6 +24,7 @@ IMyGasGenerator myGasGenerator = null;
 IMyShipToolBase myTool = null;
 IMyRadioAntenna myAntenna = null;
 
+List<IMyShipConnector> myShipConnectors = new List<IMyShipConnector>();
 List<IMyBatteryBlock> myBatteries = new List<IMyBatteryBlock>();
 List<IMySolarPanel> mySolarPanels = new List<IMySolarPanel>();
 List<IMyTextPanel> myTextPanels = new List<IMyTextPanel>();
@@ -51,7 +52,6 @@ public Program()
 
     Func<IMyTerminalBlock, bool> aCheck = b => b.CubeGrid == Me.CubeGrid;
 
-    GetFirstBlockOfType(ref myShipConnector, aCheck);
     GetFirstBlockOfType(ref myLandingGear, aCheck);
     GetFirstBlockOfType(ref myReactor, aCheck);
     GetFirstBlockOfType(ref myGyro, aCheck);
@@ -64,6 +64,7 @@ public Program()
     GridTerminalSystem.GetBlocksOfType(myBatteries, aCheck);
     GridTerminalSystem.GetBlocksOfType(mySolarPanels, aCheck);
     GridTerminalSystem.GetBlocksOfType(myTextPanels, aCheck);
+    GridTerminalSystem.GetBlocksOfType(myShipConnectors, aCheck);
 
 
     foreach( IMyTextPanel aPanel in myTextPanels)
@@ -80,7 +81,7 @@ public void Main(string argument, UpdateType updateSource)
 {
     string aOut = "";
     // Branch out the functionallity if we are connected or if we are in space
-    if (myShipConnector.Status == MyShipConnectorStatus.Connected)
+    if (IsShipConnected())
     {
         aOut += HandleBatteries(true);
         aOut += HandleReactor(true);
@@ -100,6 +101,24 @@ public void Main(string argument, UpdateType updateSource)
     //Debug();
 
     myLCDPanels[0].WritePublicText(aOut,false);
+}
+
+/**
+ *  NOTE: Gives back the status true if the ship is at least with one connector connected to something
+ *
+ */
+public bool IsShipConnected()
+{
+    bool aResult = false;
+    foreach(IMyShipConnector aConnector in myShipConnectors)
+    {
+        if (aConnector.Status == MyShipConnectorStatus.Connected)
+        {
+            aResult = true;
+            break;
+        }
+    }
+    return aResult;
 }
 
 /**
