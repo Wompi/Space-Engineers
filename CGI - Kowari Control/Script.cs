@@ -12,18 +12,14 @@
  *                         around the landing gear and connector
  *              v0.14   - ship connectors can be a couple more than just one - so it needs a list approach
  *              v0.15   - GasTanks fill amount is now handled
+ *              v0.16   - a major overhaul of the code - tests for every handle and some changes to functionallity
  *
  */
 
 IMyLandingGear myLandingGear = null;
-IMyReactor myReactor = null;
 IMyGyro myGyro = null;
-IMyCockpit myCockpit = null;
 IMyRemoteControl myRemoteControl = null;
 IMyGasGenerator myGasGenerator = null;
-
-IMyShipToolBase myTool = null;
-IMyRadioAntenna myAntenna = null;
 
 List<IMyShipConnector> myShipConnectors = new List<IMyShipConnector>();
 List<IMyCargoContainer> myContainers = new List<IMyCargoContainer>();
@@ -31,9 +27,11 @@ List<IMyBatteryBlock> myBatteries = new List<IMyBatteryBlock>();
 List<IMySolarPanel> mySolarPanels = new List<IMySolarPanel>();
 List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
 List<IMyGasTank> myGasTanks = new List<IMyGasTank>();
+List<IMyShipToolBase> myTools = new List<IMyShipToolBase>();
+List<IMyReactor> myReactors = new List<IMyReactor>();
+List<IMyCockpit> myCockpits = new List<IMyCockpit>();
+List<IMyRadioAntenna> myRadioAntennas = new List<IMyRadioAntenna>();
 
-
-double mLastO2 = 0;
 
 const float RECTOR_DEFAULT_LOAD = 50;
 const double ANTENNA_ENERGY_FACTOR = 0.004;    // NOTE: could be changed in future versions for now the energy input is linear (4W)
@@ -59,13 +57,9 @@ public Program()
     Func<IMyTerminalBlock, bool> aCheck = b => b.CubeGrid == Me.CubeGrid;
 
     GetFirstBlockOfType(ref myLandingGear, aCheck);
-    GetFirstBlockOfType(ref myReactor, aCheck);
     GetFirstBlockOfType(ref myGyro, aCheck);
-    GetFirstBlockOfType(ref myCockpit, aCheck);
     GetFirstBlockOfType(ref myRemoteControl, aCheck);
     GetFirstBlockOfType(ref myGasGenerator, aCheck);
-    GetFirstBlockOfType(ref myTool, aCheck);
-    GetFirstBlockOfType(ref myAntenna, aCheck);
 
     GridTerminalSystem.GetBlocksOfType(myBatteries, aCheck);
     GridTerminalSystem.GetBlocksOfType(mySolarPanels, aCheck);
@@ -73,6 +67,10 @@ public Program()
     GridTerminalSystem.GetBlocksOfType(myShipConnectors, aCheck);
     GridTerminalSystem.GetBlocksOfType(myContainers, aCheck);
     GridTerminalSystem.GetBlocksOfType(myGasTanks,aCheck);
+    GridTerminalSystem.GetBlocksOfType(myTools,aCheck);
+    GridTerminalSystem.GetBlocksOfType(myReactors,aCheck);
+    GridTerminalSystem.GetBlocksOfType(myCockpits,aCheck);
+    GridTerminalSystem.GetBlocksOfType(myRadioAntennas,aCheck);
 
     foreach( IMyTextPanel aPanel in myLCDPanels)
     {
@@ -91,33 +89,15 @@ public void Main(string argument, UpdateType updateSource)
     bool isConnected = IsShipConnected();
 
     aOut += HandleBatteries(isConnected);
-    //aOut += HandleReactor(isConnected);
-    //aOut += HandleTool(isConnected);
-    //aOut += HandleSolarpanels(isConnected);
-    //aOut += HandleAntenna(isConnected);
+    aOut += HandleReactor(isConnected);
+    aOut += HandleTool(isConnected);
+    aOut += HandleSolarpanels(isConnected);
+    aOut += HandleAntenna(isConnected);
     aOut += HandleGasTanks(isConnected);
 
     //Debug();
 
     myLCDPanels[0].WritePublicText(aOut,false);
-}
-
-/**
- *  NOTE: Gives back the status true if the ship is at least with one connector connected to something
- *
- */
-public bool IsShipConnected()
-{
-    bool aResult = false;
-    foreach(IMyShipConnector aConnector in myShipConnectors)
-    {
-        if (aConnector.Status == MyShipConnectorStatus.Connected)
-        {
-            aResult = true;
-            break;
-        }
-    }
-    return aResult;
 }
 
 /**
@@ -127,6 +107,11 @@ public bool IsShipConnected()
   */
 public string HandleBatteries(bool isConnected)
 {
+    if (myBatteries.Count == 0)
+    {
+        return "No Batteries\n";
+    }
+
     string aResult = "";
 
     bool isRecharge = isConnected;
@@ -165,7 +150,7 @@ public string HandleBatteries(bool isConnected)
     else if (aCurrentUse < 0)
     {
         TimeSpan aSpan = new TimeSpan((long)((aBatteryStore - aBatteryMaxStore) / aCurrentUse * 60 * 60 * 10000000));
-        aResult += aStatusString + String.Format(" >{0}{1}{2}< ",C_GREEN,aSpan.ToString("hh\\:mm\\:ss"),C_GREEN);
+        aResult += aStatusString + String.Format(" >{0}{1}{2}< ",C_GREEN,aSpan.ToString("d\\d\\ hh\\:mm\\:ss"),C_GREEN);
     }
     else
     {
@@ -185,8 +170,13 @@ public string HandleBatteries(bool isConnected)
  *          - also landing gear handling
  *
  */
-public string HandleReactor(bool pIsConnected)
+public string HandleReactors(bool pIsConnected)
 {
+    if (myReactors.Count == 0)
+    {
+        return "No Reactors\n";
+    }
+
     string aResult = "";
 
     string aAction = "OnOff_On";
@@ -194,12 +184,16 @@ public string HandleReactor(bool pIsConnected)
     {
         aAction = "OnOff_Off";
     }
-    myReactor.ApplyAction(aAction);
-    string aStatusString = myReactor.Enabled ? C_GREEN + " (on)" : C_RED + " (off)";
 
-    aResult += String.Format("Reactor: {0} - {1:0.000} kw\n",
-                aStatusString,
-                myReactor.CurrentOutput);
+    foreach( IMyReactor aReactor in myReactors)
+    {
+        aReactor.ApplyAction(aAction);
+        string aStatusString = aReactor.Enabled ? C_GREEN + " (on)" : C_RED + " (off)";
+
+        aResult += String.Format("Reactor: {0} - {1:0.000} kw\n",
+                    aStatusString,
+                    aReactor.CurrentOutput);
+    }
 
     return aResult;
 }
@@ -216,34 +210,44 @@ public string HandleReactor(bool pIsConnected)
   */
 public string HandleTool(bool pIsConnected)
 {
+    if (myTools.Count == 0) return "No Tools\n";
+
     string aResult = "";
     char aStatus = C_RED;
 
-    if (myTool == null || !myTool.IsFunctional)
+    bool aRestart = false;
+    foreach( IMyShipToolBase aTool in myTools)
     {
-        // NOTE: after the new check we wait one cycle by jumping out of the method
-        GetFirstBlockOfType(ref myTool, b => b.CubeGrid == Me.CubeGrid);
-    }
-    else
-    {
-        if (!myCockpit.IsUnderControl)
+        if (!aTool.IsFunctional)
         {
-            if (myTool.Enabled)
-            {
-                myTool.ApplyAction("OnOff_Off");
-            }
+            Func<IMyTerminalBlock, bool> aCheck = b => b.CubeGrid == Me.CubeGrid;
+            GridTerminalSystem.GetBlocksOfType(myTools,aCheck);
+            aRestart = true
+            break;
         }
         else
         {
-            aStatus = myTool.Enabled ? C_GREEN : C_YELLOW;
+            if (pIsConnected || !IsShipControlled())
+            {
+                if (aTool.Enabled)
+                {
+                    aTool.ApplyAction("OnOff_Off");
+                }
+            }
+            aStatus = aTool.Enabled ? C_GREEN : C_YELLOW;
+            aResult += String.Format("Tool: {0} {1}\n",aStatus,aTool.CustomName);
         }
+
     }
-    aResult += String.Format("Tool: {0} {1}\n",aStatus,myTool.CustomName);
+    if (aRestart) return "Tool needs a second check!\n";
+
     return aResult;
 }
 
 public string HandleSolarpanels(bool pIsConnected)
 {
+    if (mySolarPanels.Count == 0) return "No Solarpanels\n";
+
     string aResult = "";
     double aSolarOutput = 0;
     foreach ( IMySolarPanel aPanel in mySolarPanels)
@@ -257,33 +261,41 @@ public string HandleSolarpanels(bool pIsConnected)
     return aResult;
 }
 
-public string HandleAntenna(bool pIsConnected)
+public string HandleAntennas(bool pIsConnected)
 {
+    if (myRadioAntennas.Count == 0 ) return "No Radio Antennas\n";
+
     string aResult = "";
 
-    char aStatus = C_RED;
-    // When the ship is actively controlled the antenna can be switched off
-    if (myCockpit.IsUnderControl)
+    foreach(IMyRadioAntenna aAntenna in myRadioAntennas)
     {
-        pIsConnected = true;
-        aStatus = C_YELLOW;
-    }
+        char aStatus = C_RED;
+        // When the ship is actively controlled the antenna can be switched off
+        // TODO: hmm is that realy the case?
+        if (IsShipControlled())
+        {
+            pIsConnected = true;
+            aStatus = C_YELLOW;
+        }
+        double aRadius =  aAntenna.Radius;
 
-    double aRadius =  myAntenna.Radius;
+        // if connected switch off the antennas
+        // TODO: this might be changed when I can use antenna commands
+        if (pIsConnected)
+        {
+            aAntenna.Enabled = false;
+        }
+        else
+        {
+            aAntenna.Enabled = true;
+            aStatus = C_GREEN;
+        }
+        aResult += String.Format("Antenna: {0} {1} m  {2} kw\n",
+                    aStatus,
+                    aRadius,
+                    (aRadius * ANTENNA_ENERGY_FACTOR));
 
-    if (pIsConnected)
-    {
-        myAntenna.Enabled = false;
     }
-    else
-    {
-        myAntenna.Enabled = true;
-        aStatus = C_GREEN;
-    }
-    aResult += String.Format("Antenna: {0} {1} m  {2} kw\n",
-                aStatus,
-                aRadius,
-                (aRadius * ANTENNA_ENERGY_FACTOR));
     return aResult;
 }
 
@@ -303,12 +315,7 @@ public string HandleGasTanks(bool pIsConnected)
         aCapacity += aTank.Capacity;
     }
 
-    double aDelta = mLastO2 - aGas;
-
-    aResult += String.Format("Tanks: {0:0}/{1}  \nDelta: {2}",aGas,aCapacity,aDelta);
-
-    mLastO2 = aGas;
-
+    aResult += String.Format("Tanks: {0:0}/{1}  \n",aGas,aCapacity);
     return aResult;
 }
 
@@ -327,3 +334,46 @@ public float GetInventoryFillPercentage(IMyTerminalBlock pTerminalBlock)
     }
     return aResult;
 }
+
+
+/**
+ *  NOTE: Helper function to check if the ship is controlled by the player or autopilot
+ *
+ *  TODO: needs more checks as well for remote control
+ */
+ public bool IsShipControlled()
+ {
+     bool aResult = false;
+
+     if (myCockpits.Count > 0)
+     {
+         foreach(IMyCockpit aCockpit in myCockpits)
+         {
+             if (aCockpit.IsUnderControl)
+             {
+                 aResult = true;
+                 break;
+             }
+         }
+     }
+
+     return aResult;
+ }
+
+ /**
+  *  NOTE: Gives back the status true if the ship is at least with one connector connected to something
+  *
+  */
+ public bool IsShipConnected()
+ {
+     bool aResult = false;
+     foreach(IMyShipConnector aConnector in myShipConnectors)
+     {
+         if (aConnector.Status == MyShipConnectorStatus.Connected)
+         {
+             aResult = true;
+             break;
+         }
+     }
+     return aResult;
+ }
