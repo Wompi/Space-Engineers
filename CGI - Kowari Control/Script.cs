@@ -11,6 +11,7 @@
  *              v0.13   - lets see if we can make a better status display - batteries / power and all the good stuff
  *                         around the landing gear and connector
  *              v0.14   - ship connectors can be a couple more than just one - so it needs a list approach
+ *              v0.15   - GasTanks fill amount is now handled
  *
  */
 
@@ -29,7 +30,10 @@ List<IMyCargoContainer> myContainers = new List<IMyCargoContainer>();
 List<IMyBatteryBlock> myBatteries = new List<IMyBatteryBlock>();
 List<IMySolarPanel> mySolarPanels = new List<IMySolarPanel>();
 List<IMyTextPanel> myLCDPanels = new List<IMyTextPanel>();
+List<IMyGasTank> myGasTanks = new List<IMyGasTank>();
 
+
+double mLastO2 = 0;
 
 const float RECTOR_DEFAULT_LOAD = 50;
 const double ANTENNA_ENERGY_FACTOR = 0.004;    // NOTE: could be changed in future versions for now the energy input is linear (4W)
@@ -68,6 +72,7 @@ public Program()
     GridTerminalSystem.GetBlocksOfType(myLCDPanels, aCheck);
     GridTerminalSystem.GetBlocksOfType(myShipConnectors, aCheck);
     GridTerminalSystem.GetBlocksOfType(myContainers, aCheck);
+    GridTerminalSystem.GetBlocksOfType(myGasTanks,aCheck);
 
     foreach( IMyTextPanel aPanel in myLCDPanels)
     {
@@ -86,10 +91,11 @@ public void Main(string argument, UpdateType updateSource)
     bool isConnected = IsShipConnected();
 
     aOut += HandleBatteries(isConnected);
-    aOut += HandleReactor(isConnected);
-    aOut += HandleTool(isConnected);
-    aOut += HandleSolarpanels(isConnected);
-    aOut += HandleAntenna(isConnected);
+    //aOut += HandleReactor(isConnected);
+    //aOut += HandleTool(isConnected);
+    //aOut += HandleSolarpanels(isConnected);
+    //aOut += HandleAntenna(isConnected);
+    aOut += HandleGasTanks(isConnected);
 
     //Debug();
 
@@ -154,7 +160,7 @@ public string HandleBatteries(bool isConnected)
     if (aCurrentUse > 0)
     {
         TimeSpan aSpan = new TimeSpan((long)(aBatteryStore / aCurrentUse * 60 * 60 * 10000000));
-        aResult += aStatusString + String.Format(" <{0}{1}{2}> ",C_RED,aSpan.ToString("hh\\:mm\\:ss"),C_RED);
+        aResult += aStatusString + String.Format(" <{0}{1}{2}> ",C_RED,aSpan.ToString("d\\d\\ hh\\:mm\\:ss"),C_RED);
     }
     else if (aCurrentUse < 0)
     {
@@ -281,6 +287,30 @@ public string HandleAntenna(bool pIsConnected)
     return aResult;
 }
 
+
+// TODO: split for oxygen and hydrogen
+public string HandleGasTanks(bool pIsConnected)
+{
+    string aResult = "";
+    if (myGasTanks.Count == 0) return "No Gas Tanks\n";
+
+    double aGas = 0;
+    float aCapacity = 0;
+
+    foreach( IMyGasTank aTank in myGasTanks)
+    {
+        aGas += aTank.Capacity * aTank.FilledRatio;
+        aCapacity += aTank.Capacity;
+    }
+
+    double aDelta = mLastO2 - aGas;
+
+    aResult += String.Format("Tanks: {0:0}/{1}  \nDelta: {2}",aGas,aCapacity,aDelta);
+
+    mLastO2 = aGas;
+
+    return aResult;
+}
 
 /**
  *  NOTE: Helper function to get the fillstatus for a terminalblock that has an aInventory
