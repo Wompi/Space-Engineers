@@ -89,10 +89,10 @@ public void Main(string argument, UpdateType updateSource)
     bool isConnected = IsShipConnected();
 
     aOut += HandleBatteries(isConnected);
-    aOut += HandleReactor(isConnected);
-    aOut += HandleTool(isConnected);
+    aOut += HandleReactors(isConnected);
+    aOut += HandleTools(isConnected);
     aOut += HandleSolarpanels(isConnected);
-    aOut += HandleAntenna(isConnected);
+    aOut += HandleAntennas(isConnected);
     aOut += HandleGasTanks(isConnected);
 
     //Debug();
@@ -208,7 +208,7 @@ public string HandleReactors(bool pIsConnected)
   *
   *     TODO: handle the return result
   */
-public string HandleTool(bool pIsConnected)
+public string HandleTools(bool pIsConnected)
 {
     if (myTools.Count == 0) return "No Tools\n";
 
@@ -222,7 +222,7 @@ public string HandleTool(bool pIsConnected)
         {
             Func<IMyTerminalBlock, bool> aCheck = b => b.CubeGrid == Me.CubeGrid;
             GridTerminalSystem.GetBlocksOfType(myTools,aCheck);
-            aRestart = true
+            aRestart = true;
             break;
         }
         else
