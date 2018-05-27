@@ -44,6 +44,9 @@ const char C_YELLOW = '\uE220';
 const char C_WHITE = '\uE2FF';
 const char C_BLACK = '\uE100';
 
+// NOTE: this can be changed whenever an update to the enginge occurs
+const string SMALL_ATMO_THRUST_SUBTYPE_NAME = "SmallBlockSmallAtmosphericThrust";
+
 public void GetFirstBlockOfType<T>( ref T pBlock, Func<T, bool> pCheck = null ) where T : class
 {
     List<T> aList = new List<T>();
@@ -56,7 +59,7 @@ public Program()
     Runtime.UpdateFrequency  = UpdateFrequency.Update10;
 
     Func<IMyTerminalBlock, bool> aCheck = b => b.CubeGrid == Me.CubeGrid;
-    Func<IMyTerminalBlock, bool> aAtmoCheck = b => b.CubeGrid == Me.CubeGrid;
+    Func<IMyTerminalBlock, bool> aAtmoCheck = b => b.CubeGrid == Me.CubeGrid && b.BlockDefinition.SubtypeId == SMALL_ATMO_THRUST_SUBTYPE_NAME;
 
     GetFirstBlockOfType(ref myLandingGear, aCheck);
     GetFirstBlockOfType(ref myGyro, aCheck);
