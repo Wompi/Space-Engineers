@@ -22,7 +22,8 @@ public Program()
 {
     Runtime.UpdateFrequency  = UpdateFrequency.Update10;
     string aOut = myCameraManager.LoadEntities(GridTerminalSystem, b => b.CubeGrid == Me.CubeGrid);
-    GridTerminalSystem.GetBlocksOfType(myLCDPanels, b => b.CubeGrid == Me.CubeGrid);
+    GridTerminalSystem.GetBlocksOfType(myLCDPanels);
+    
 
     // Note: This leads to a game grash if another script set this as well
     // foreach( IMyTextPanel aPanel in myLCDPanels)
@@ -63,8 +64,9 @@ public class CGI_CameraManager
         private Dictionary<long,MyDetectedEntityInfo> mScanResults = new Dictionary<long,MyDetectedEntityInfo>();
         private List<long> mScanIDs = new List<long>();
         private int mCurrentScanIndex = 0;
+        private double mLastCanScan = 0;
 
-        double DEFAULT_SCAN_RANGE = 60000;
+        double DEFAULT_SCAN_RANGE = 50000;
 
         public CGI_CameraManager()
         {
@@ -98,15 +100,20 @@ public class CGI_CameraManager
         {
             string aResult = "";
             IMyCameraBlock aCamera = mCameras[mCurrentCameraIndex];
-            aResult += String.Format("Camera Index: {0:00}/{1:00}\n Name: {2}\n CanScan [{3:0.0} km]: {4}\n ScanRange: {5:0.0} km\n Mass: {6}\n\n",
+
+            double aDelta = aCamera.AvailableScanRange - mLastCanScan;
+            aResult += String.Format("Camera Index: {0:00}/{1:00}\n Name: {2}\n CanScan [{3:0.0} km]: {4}\n ScanRange: {5:0.0} km\n Mass: {6}\nDelta: {7}\n\n",
                 mCurrentCameraIndex+1,
                 mCameras.Count,
                 aCamera.CustomName,
                 DEFAULT_SCAN_RANGE/1000,
                 aCamera.CanScan(DEFAULT_SCAN_RANGE) ? 'Y' : 'N',
                 aCamera.AvailableScanRange / 1000,
-                aCamera.Mass
+                aCamera.Mass,
+                aDelta
                 );
+
+            mLastCanScan = aCamera.AvailableScanRange;
 
             return aResult;
         }
