@@ -1,62 +1,58 @@
-﻿public Program()  {} 
- 
-public void Save() {} 
- 
-public void Main(string argument) 
+﻿
+IMyPistonBase myPiston = null;
+IMyMotorStator myRotor = null;
+
+
+const String PISTON_NAME = "CGI - MB01 Piston 02 (Piston Experiment)";
+const String ROTOR_NAME = "CGI - MB01 Rotor 27 (Piston Experiment)";
+
+public Program() 
 { 
-    IMyMotorStator mRotorLeft = GridTerminalSystem.GetBlockWithName("Rotor") as IMyMotorStator ; 
+    Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
-    IMyCameraBlock mC1 = GridTerminalSystem.GetBlockWithName("C1") as IMyCameraBlock; 
-    IMyCameraBlock mC2 = GridTerminalSystem.GetBlockWithName("C2") as IMyCameraBlock;  
-
-
-    Vector3D aC1Position = mC1.GetPosition();
-    Vector3D aC2Position = mC2.GetPosition(); 
-
-    Vector3D aResult = aC1Position - aC2Position;
-    
-   // var aDistance =  Math.sqrt(aResult[0]*aResult[0]+aResult[1]*aResult[1]+aResult[2]*aResult[2]);
-
-    var aDistance = Vector3D.Distance(aC1Position,aC2Position);
-
-    if (mRotorLeft == null)
+    myPiston = GridTerminalSystem.GetBlockWithName(PISTON_NAME) as IMyPistonBase;
+    myRotor = GridTerminalSystem.GetBlockWithName(ROTOR_NAME) as IMyMotorStator;
+} 
+ 
+public void Save() 
+{ 
+  
+} 
+ 
+public void Main(string argument, UpdateType updateSource) 
+{ 
+    if (myPiston == null)
     {
-        Debug("No LeftRotor found!",false);
+        Echo("No Piston found!");
+        return;
+    } 
+    if (myRotor == null)
+    {
+        Echo("No Rotor found!");
         return;
     }
-    else
-    {
-//        var aAngle = mRotorLeft.GetProperty("Angle");
-        var aAngle = mRotorLeft.Angle;
-
-        var aAngleDegree = aAngle*180/Math.PI;
-
-        var aTargetDistance = aDistance / Math.Asin(aAngle);
-
-        Echo(aAngle+"  "+aTargetDistance+" "+aDistance);
-
-       // Debug("Left Rotor clear to engage!",false);
-      //  Debug("Status: "+mRotorLeft.DetailedInfo,true);
-
-        
 
 
+    float aRotorAngle = myRotor.Angle + (float)(Math.PI/2.0);
+    float aCurrentPistonPosition = myPiston.CurrentPosition;
 
 
+    double aExtend = (3+0.25) / Math.Cos(aRotorAngle);
 
 
-      //  Debug("Angle: "+aAngle+"\n C1: "+mC1.GetPosition()+"\n C2: "+mC2.GetPosition()+"\n Result: "+aDistance+"\n TargetDistance: "+aTargetDistance,true);
-    }
+    Echo("Piston: "+aCurrentPistonPosition);
+    Echo("Rotor: "+aRotorAngle);
+
+    Echo("Extend: " + (aExtend-3.25));
+    Echo("Delta: "+(aCurrentPistonPosition-(aExtend-3.25)));
+
+    myPiston.Velocity = -(float)(aCurrentPistonPosition-(aExtend-3.25));
+
+
 
 } 
 
-
-void Debug(string pText, bool pAppend)
+public double GetPistonSpeed(float pAngle)
 {
-        Echo(pText);
-
-//    IMyTextPanel aPanel = GridTerminalSystem.GetBlockWithName("CGI - LCD D1") as IMyTextPanel;
-
-//    aPanel.WritePublicText("Debug: "+pText+"\n",pAppend);
-
+    return   (-0.00422740453419959120 * Math.Pow(pAngle,0) + 0.027903335149905922 * Math.Pow(pAngle,1));          
 }
