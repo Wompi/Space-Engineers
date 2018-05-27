@@ -31,6 +31,7 @@ List<IMyShipToolBase> myTools = new List<IMyShipToolBase>();
 List<IMyReactor> myReactors = new List<IMyReactor>();
 List<IMyCockpit> myCockpits = new List<IMyCockpit>();
 List<IMyRadioAntenna> myRadioAntennas = new List<IMyRadioAntenna>();
+List<IMyThrust> myAtmoThrusters = new List<IMyThrust>();
 
 
 const float RECTOR_DEFAULT_LOAD = 50;
@@ -55,6 +56,7 @@ public Program()
     Runtime.UpdateFrequency  = UpdateFrequency.Update10;
 
     Func<IMyTerminalBlock, bool> aCheck = b => b.CubeGrid == Me.CubeGrid;
+    Func<IMyTerminalBlock, bool> aAtmoCheck = b => b.CubeGrid == Me.CubeGrid;
 
     GetFirstBlockOfType(ref myLandingGear, aCheck);
     GetFirstBlockOfType(ref myGyro, aCheck);
@@ -71,6 +73,7 @@ public Program()
     GridTerminalSystem.GetBlocksOfType(myReactors,aCheck);
     GridTerminalSystem.GetBlocksOfType(myCockpits,aCheck);
     GridTerminalSystem.GetBlocksOfType(myRadioAntennas,aCheck);
+    GridTerminalSystem.GetBlocksOfType(myAtmoThrusters,aAtmoCheck);
 
     foreach( IMyTextPanel aPanel in myLCDPanels)
     {
@@ -94,6 +97,7 @@ public void Main(string argument, UpdateType updateSource)
     aOut += HandleSolarpanels(isConnected);
     aOut += HandleAntennas(isConnected);
     aOut += HandleGasTanks(isConnected);
+    aOut += HandleAtmoThrusters(isConnected);
 
     //Debug();
 
@@ -299,7 +303,6 @@ public string HandleAntennas(bool pIsConnected)
     return aResult;
 }
 
-
 // TODO: split for oxygen and hydrogen
 public string HandleGasTanks(bool pIsConnected)
 {
@@ -318,6 +321,31 @@ public string HandleGasTanks(bool pIsConnected)
     aResult += String.Format("Tanks: {0:0}/{1}  \n",aGas,aCapacity);
     return aResult;
 }
+
+public string HandleAtmoThrusters(bool pIsConnected)
+{
+    if (myAtmoThrusters.Count == 0) return "No Atmospheric Thrust\n";
+    string aResult = "";
+
+    double aEfficiency = 0;
+
+    foreach(IMyThrust aThruster in myAtmoThrusters)
+    {
+        if (pIsConnected)
+        {
+            aThruster.enabled = true;
+        }
+        else
+        {
+            aThruster.enabled = false;
+        }
+    }
+
+    aResult += String.Format("Atmo thrust: {0} {1}\n",myAtmoThrusters.Count,aEfficiency);
+
+    return aResult;
+}
+
 
 /**
  *  NOTE: Helper function to get the fillstatus for a terminalblock that has an aInventory
