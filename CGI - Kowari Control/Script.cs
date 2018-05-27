@@ -333,11 +333,11 @@ public string HandleAtmoThrusters(bool pIsConnected)
     {
         if (pIsConnected)
         {
-            aThruster.enabled = true;
+            aThruster.Enabled = false;
         }
         else
         {
-            aThruster.enabled = false;
+            aThruster.Enabled = true;
         }
     }
 
