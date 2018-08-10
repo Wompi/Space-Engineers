@@ -16,7 +16,7 @@ public Program()
 
 public void Save()
 {
-  
+
 }
 
 public void Main(string argument, UpdateType updateSource)
@@ -54,5 +54,24 @@ public void Main(string argument, UpdateType updateSource)
 
 public double GetPistonSpeed(float pAngle)
 {
-    return   (-0.00422740453419959120 * Math.Pow(pAngle,0) + 0.027903335149905922 * Math.Pow(pAngle,1));          
+    // NOTE: polynom calulated for rotation speed 60 (only viable for small rotors I guess)
+    double[] aCoefficients = {
+        -4.2274045341959120e-003,
+         2.7903335149905922e-002,
+         2.5230300449510649e-003,
+        -2.6622603046188090e-004,
+         1.6280318195653176e-005,
+        -5.5129434077977062e-007,
+         1.0840860664005237e-008,
+        -1.1421442081557958e-010,
+         5.1096372466975643e-013,
+    };
+
+    double aResult = 0;
+    for (int i=0; i < aCoefficients.Length; i++)
+    {
+        aResult+= aCoefficients[i] * Math.Pow(pAngle,i);
+    }
+
+    return aResult;
 }

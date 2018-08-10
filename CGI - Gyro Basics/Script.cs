@@ -5,6 +5,7 @@
  *      Version:
  *              v0.10 - just the basic functions for a gyro block - also maybe a gyro test routine to check the angle acceleration
  *              v0.20 - lets see if we can make out way to align with the gravity vector
+ *              v0.30 - make the script capable of taking a vector for a scanned position and allign to this position
  *
  */
 
@@ -25,7 +26,7 @@ public Program()
 
     GridTerminalSystem.GetBlocksOfType(myLCDPanels, b => b.CubeGrid == Me.CubeGrid);
 
-   
+
 
 }
 
@@ -76,7 +77,7 @@ public class CGI_GyroManager
     private bool isStart = true;
     private Vector3D aCheckStartPosition = Vector3D.Zero;
     private float POWER_CHECK_DELTA = 0.001f;
-    private float GYRO_DELTA =  (float) (1 * Math.PI / 180f); 
+    private float GYRO_DELTA =  (float) (1 * Math.PI / 180f);
 
     public string LoadEntities(IMyGridTerminalSystem pGTS, IMyShipController pReference)
     {
@@ -119,17 +120,17 @@ public class CGI_GyroManager
              {
                     aGyro.Pitch = (float) -aRadianAngleVector.Z;
              }
-             if (aDegreeAngleVector.Y != 0) 
-             { 
-                    aGyro.Roll = (float) aRadianAngleVector.Y; 
+             if (aDegreeAngleVector.Y != 0)
+             {
+                    aGyro.Roll = (float) aRadianAngleVector.Y;
              }
        }
 
 
 
-      aResult += String.Format("Gyro: \n Pitch: {0:00.000}\n Roll: {1:00.000}\n Yaw: {2:00.000}\n", 
-                        mGyros[0].Pitch * 180 / Math.PI, 
-                        mGyros[0].Roll * 180 / Math.PI, 
+      aResult += String.Format("Gyro: \n Pitch: {0:00.000}\n Roll: {1:00.000}\n Yaw: {2:00.000}\n",
+                        mGyros[0].Pitch * 180 / Math.PI,
+                        mGyros[0].Roll * 180 / Math.PI,
                         mGyros[0].Yaw * 180 / Math.PI);
 
 
